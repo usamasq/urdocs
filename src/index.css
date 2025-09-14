@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .urdu-text {
+    font-family: 'Noto Nastaliq Urdu', serif;
+    direction: rtl;
+    text-align: right;
+    line-height: 1.8;
+  }
+  
+  .editor-content {
+    @apply urdu-text;
+  }
+  
+  .editor-content p {
+    margin: 0.75rem 0;
+  }
+  
+  .editor-content:focus {
+    outline: none;
+  }
+}
