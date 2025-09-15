@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PaginationControlsProps {
   pageCount: number;
@@ -88,65 +91,83 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   if (pageCount <= 1) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-4 px-4 py-2 bg-muted/30 border-t border-border backdrop-blur-sm">
-      {/* Page Navigation */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handlePrevPage}
-          disabled={currentPage === 0}
-          className="p-2 rounded-md hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
-          title="Previous page"
-        >
-          <ChevronLeft className="w-4 h-4 text-muted-foreground" />
-        </button>
-        
-        <div className="flex items-center gap-2 px-3 py-1 bg-background/50 rounded-md border border-border">
-          <span className="text-sm font-medium text-foreground">
-            {currentPage + 1}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            of {pageCount}
-          </span>
-        </div>
-        
-        <button
-          onClick={handleNextPage}
-          disabled={currentPage >= pageCount - 1}
-          className="p-2 rounded-md hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
-          title="Next page"
-        >
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-        </button>
-      </div>
-
-      {/* Jump to Page */}
-      {pageCount > 1 && (
-        <form onSubmit={handleJumpToPage} className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <label htmlFor="jump-to-page" className="text-xs text-muted-foreground">
-              Go to:
-            </label>
-            <input
-              id="jump-to-page"
-              type="text"
-              value={jumpToPage}
-              onChange={handleJumpInputChange}
-              placeholder="1"
-              className="w-12 px-2 py-1 text-xs text-center bg-background border border-border rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              maxLength={3}
-            />
+    <TooltipProvider>
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-4 px-4 py-3 bg-muted/30 border-t border-border backdrop-blur-sm">
+        {/* Page Navigation */}
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePrevPage}
+                disabled={currentPage === 0}
+                className="h-8 w-8 p-0 transition-all duration-200 hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Previous page</p>
+            </TooltipContent>
+          </Tooltip>
+          
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-background/50 rounded-md border border-border">
+            <span className="text-sm font-medium text-foreground">
+              {currentPage + 1}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              of {pageCount}
+            </span>
           </div>
-          <button
-            type="submit"
-            className="px-3 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!jumpToPage || parseInt(jumpToPage) < 1 || parseInt(jumpToPage) > pageCount}
-            title="Jump to page"
-          >
-            Go
-          </button>
-        </form>
-      )}
-    </div>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage >= pageCount - 1}
+                className="h-8 w-8 p-0 transition-all duration-200 hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Next page</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Jump to Page */}
+        {pageCount > 1 && (
+          <form onSubmit={handleJumpToPage} className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <label htmlFor="jump-to-page" className="text-xs text-muted-foreground">
+                Go to:
+              </label>
+              <Input
+                id="jump-to-page"
+                type="text"
+                value={jumpToPage}
+                onChange={handleJumpInputChange}
+                placeholder="1"
+                className="w-12 h-8 text-xs text-center"
+                maxLength={3}
+              />
+            </div>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-8 px-3 text-xs transition-all duration-200"
+              disabled={!jumpToPage || parseInt(jumpToPage) < 1 || parseInt(jumpToPage) > pageCount}
+            >
+              Go
+            </Button>
+          </form>
+        )}
+      </div>
+    </TooltipProvider>
   );
 };
 

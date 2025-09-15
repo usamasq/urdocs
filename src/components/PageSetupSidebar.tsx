@@ -11,6 +11,13 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { mmToInches, inchesToMm, formatDimension, validateMargin } from '../utils/dimensionUtils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export interface PageLayout {
   pageSize: 'A4' | 'Letter' | 'Custom';
@@ -111,61 +118,53 @@ const PageSetupSidebar: React.FC<PageSetupSidebarProps> = ({
     <div className="fixed inset-0 z-50 overflow-hidden">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-200"
+        className="absolute inset-0 bg-black/50 transition-opacity duration-300 ease-out"
         onClick={onClose}
       />
       
       {/* Sidebar */}
-      <div className={`absolute right-0 top-0 h-full w-96 max-w-[90vw] transform transition-transform duration-200 flex flex-col ${
-        isDarkMode ? 'bg-gray-800 border-l border-gray-700' : 'bg-white border-l border-gray-200'
-      } shadow-2xl`}>
+      <div className="absolute right-0 top-0 h-full w-96 max-w-[90vw] transform transition-all duration-300 ease-out flex flex-col bg-card border-l border-border shadow-2xl animate-in slide-in-from-right">
         {/* Header */}
-        <div className={`flex items-center justify-between p-4 border-b ${
-          isDarkMode ? 'border-gray-700' : 'border-gray-200'
-        }`}>
-          <div className="flex items-center gap-2">
-            <Settings className={`w-5 h-5 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} />
-            <h2 className={`text-lg font-semibold font-nastaliq ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <div className="flex items-center gap-3">
+            <Settings className="w-5 h-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold font-nastaliq text-foreground">
               {t('page.setup.title')}
             </h2>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onClose}
-            className={`p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-150 ${
-              isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className="h-8 w-8 p-0 transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
           >
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Unit Toggle */}
-        <div className={`px-4 py-3 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center justify-between">
-            <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <Label className="text-sm font-medium text-foreground">
               {t('page.setup.unit')}
-            </span>
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-md p-1">
-              <button
+            </Label>
+            <div className="flex bg-muted rounded-md p-1">
+              <Button
+                variant={unit === 'mm' ? "default" : "ghost"}
+                size="sm"
                 onClick={() => setUnit('mm')}
-                className={`px-3 py-1 text-xs font-medium rounded-sm transition-colors duration-150 ${
-                  unit === 'mm'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                }`}
+                className="h-6 px-3 text-xs font-medium transition-all duration-200"
               >
                 mm
-              </button>
-              <button
+              </Button>
+              <Button
+                variant={unit === 'in' ? "default" : "ghost"}
+                size="sm"
                 onClick={() => setUnit('in')}
-                className={`px-3 py-1 text-xs font-medium rounded-sm transition-colors duration-150 ${
-                  unit === 'in'
-                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                }`}
+                className="h-6 px-3 text-xs font-medium transition-all duration-200"
               >
                 in
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -173,29 +172,28 @@ const PageSetupSidebar: React.FC<PageSetupSidebarProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Page Size Section */}
-          <div className={`border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-            <button
+          <div className="border-b border-border">
+            <Button
+              variant="ghost"
               onClick={() => toggleSection('pageSize')}
-              className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150 ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}
+              className="w-full flex items-center justify-between p-6 h-auto hover:bg-accent hover:text-accent-foreground transition-all duration-200"
             >
               <div className="flex items-center gap-3">
-                <FileText className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                <span className="font-medium">{t('page.setup.page.size')}</span>
+                <FileText className="w-5 h-5 text-muted-foreground" />
+                <span className="font-medium text-foreground">{t('page.setup.page.size')}</span>
               </div>
               {expandedSections.has('pageSize') ? (
-                <ChevronUp className="w-4 h-4 text-gray-500" />
+                <ChevronUp className="w-4 h-4 text-muted-foreground" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-gray-500" />
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
               )}
-            </button>
+            </Button>
             
             {expandedSections.has('pageSize') && (
-              <div className="px-4 pb-4 space-y-3">
+              <div className="px-6 pb-6 space-y-4 animate-in slide-in-from-top-2 duration-200">
                 <div className="space-y-2">
                   {pageSizeOptions.map((option) => (
-                    <label key={option.value} className="flex items-center gap-3 cursor-pointer p-2 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
+                    <label key={option.value} className="flex items-center gap-3 cursor-pointer p-2 rounded-md hover:bg-accent transition-colors duration-200">
                       <input
                         type="radio"
                         name="pageSize"
@@ -209,9 +207,9 @@ const PageSetupSidebar: React.FC<PageSetupSidebarProps> = ({
                             customHeight: option.height
                           });
                         }}
-                        className="text-blue-600 focus:ring-blue-500"
+                        className="text-primary focus:ring-primary"
                       />
-                      <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                      <span className="text-sm text-foreground">
                         {option.label}
                       </span>
                     </label>
@@ -222,42 +220,34 @@ const PageSetupSidebar: React.FC<PageSetupSidebarProps> = ({
                 {localLayout.pageSize === 'Custom' && (
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className={`block text-xs font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <Label className="text-xs font-medium text-foreground mb-2">
                         Width ({unit})
-                      </label>
-                      <input
+                      </Label>
+                      <Input
                         type="number"
                         value={formatValue(convertValue(localLayout.customWidth, 'mm', unit), unit)}
                         onChange={(e) => {
                           const value = convertValue(Number(e.target.value), unit, 'mm');
                           handleLayoutChange({ customWidth: value });
                         }}
-                        className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
+                        className="h-8 text-sm"
                         min={unit === 'mm' ? "50" : "2"}
                         max={unit === 'mm' ? "500" : "20"}
                         step={unit === 'in' ? "0.1" : "1"}
                       />
                     </div>
                     <div>
-                      <label className={`block text-xs font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <Label className="text-xs font-medium text-foreground mb-2">
                         Height ({unit})
-                      </label>
-                      <input
+                      </Label>
+                      <Input
                         type="number"
                         value={formatValue(convertValue(localLayout.customHeight, 'mm', unit), unit)}
                         onChange={(e) => {
                           const value = convertValue(Number(e.target.value), unit, 'mm');
                           handleLayoutChange({ customHeight: value });
                         }}
-                        className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
+                        className="h-8 text-sm"
                         min={unit === 'mm' ? "50" : "2"}
                         max={unit === 'mm' ? "800" : "32"}
                         step={unit === 'in' ? "0.1" : "1"}
@@ -369,7 +359,7 @@ const PageSetupSidebar: React.FC<PageSetupSidebarProps> = ({
                           : 'bg-white border-gray-300 text-gray-900'
                       }`}
                       min="0"
-                      max={unit === 'mm' ? "50" : "2"}
+                      max={unit === 'mm' ? "100" : "4"}
                       step={unit === 'in' ? "0.1" : "1"}
                     />
                   </div>
@@ -390,7 +380,7 @@ const PageSetupSidebar: React.FC<PageSetupSidebarProps> = ({
                           : 'bg-white border-gray-300 text-gray-900'
                       }`}
                       min="0"
-                      max={unit === 'mm' ? "50" : "2"}
+                      max={unit === 'mm' ? "100" : "4"}
                       step={unit === 'in' ? "0.1" : "1"}
                     />
                   </div>
@@ -411,7 +401,7 @@ const PageSetupSidebar: React.FC<PageSetupSidebarProps> = ({
                           : 'bg-white border-gray-300 text-gray-900'
                       }`}
                       min="0"
-                      max={unit === 'mm' ? "50" : "2"}
+                      max={unit === 'mm' ? "100" : "4"}
                       step={unit === 'in' ? "0.1" : "1"}
                     />
                     <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -435,7 +425,7 @@ const PageSetupSidebar: React.FC<PageSetupSidebarProps> = ({
                           : 'bg-white border-gray-300 text-gray-900'
                       }`}
                       min="0"
-                      max={unit === 'mm' ? "50" : "2"}
+                      max={unit === 'mm' ? "100" : "4"}
                       step={unit === 'in' ? "0.1" : "1"}
                     />
                     <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>

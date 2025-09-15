@@ -50,7 +50,7 @@ export const formatDimension = (value: number, unit: 'mm' | 'in'): string => {
  */
 export const validateMargin = (value: number, unit: 'mm' | 'in'): number => {
   const minMargin = 0;
-  const maxMargin = unit === 'mm' ? 50 : 2; // 50mm or 2 inches max
+  const maxMargin = unit === 'mm' ? 100 : 4; // 100mm or 4 inches max
   return Math.max(minMargin, Math.min(maxMargin, value));
 };
 

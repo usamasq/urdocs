@@ -49,19 +49,20 @@ const EnhancedEditorWithRuler: React.FC<EnhancedEditorWithRulerProps> = ({
       pageLayout?.orientation || 'portrait'
     );
     
+    // Return base dimensions - CSS transform will handle the scaling
     return {
       ...pageDims,
-      width: pageDims.width * zoomLevel,
-      height: pageDims.height * zoomLevel
+      width: pageDims.width,
+      height: pageDims.height
     };
-  }, [pageLayout, zoomLevel]);
+  }, [pageLayout]);
 
   // Simple and effective page count calculation
   const calculatePageCount = useCallback(() => {
     if (!contentRef.current || !editor) return;
 
     const dimensions = calculateDimensions();
-    const contentAreaHeight = dimensions.height - (pageLayout.margins.top + pageLayout.margins.bottom) * 3.7795275591 * zoomLevel;
+    const contentAreaHeight = dimensions.height - (pageLayout.margins.top + pageLayout.margins.bottom) * 3.7795275591;
     
     // Get the editor content element
     const editorElement = contentRef.current.querySelector('.ProseMirror');
@@ -77,7 +78,7 @@ const EnhancedEditorWithRuler: React.FC<EnhancedEditorWithRulerProps> = ({
     setPageCount(newPageCount);
     setIsOverflowing(overflowing);
     onPageCountChange?.(newPageCount);
-  }, [calculateDimensions, onPageCountChange, editor, pageLayout.margins, zoomLevel]);
+  }, [calculateDimensions, onPageCountChange, editor, pageLayout.margins]);
 
   // Monitor content changes with simple debouncing
   useEffect(() => {
@@ -118,12 +119,17 @@ const EnhancedEditorWithRuler: React.FC<EnhancedEditorWithRulerProps> = ({
       className="flex-1 overflow-y-auto bg-muted/20 p-8 pb-20"
     >
       {/* Ruler System Container */}
-      <div className="ruler-container mb-4">
+      <div 
+        className="ruler-container mb-4"
+        style={{
+          transform: `scale(${zoomLevel})`,
+          transformOrigin: 'top center'
+        }}
+      >
         {/* Horizontal Ruler */}
         <div className="flex justify-center mb-2">
           <div style={{ width: '30px' }}></div> {/* Spacer for vertical ruler */}
           <RulerSystem
-            documentRef={documentRef}
             pageLayout={pageLayout}
             zoomLevel={zoomLevel}
             onMarginChange={handleMarginChange}
@@ -137,7 +143,6 @@ const EnhancedEditorWithRuler: React.FC<EnhancedEditorWithRulerProps> = ({
           {/* Vertical Ruler */}
           <div style={{ width: '30px' }}>
             <RulerSystem
-              documentRef={documentRef}
               pageLayout={pageLayout}
               zoomLevel={zoomLevel}
               onMarginChange={handleMarginChange}

@@ -211,6 +211,118 @@
     text-align: right;
     line-height: 1.8;
   }
+
+  /* Text alignment support for editor */
+  .ProseMirror p[style*="text-align: left"] {
+    text-align: left !important;
+  }
+  
+  .ProseMirror p[style*="text-align: center"] {
+    text-align: center !important;
+  }
+  
+  .ProseMirror p[style*="text-align: right"] {
+    text-align: right !important;
+  }
+  
+  .ProseMirror p[style*="text-align: justify"] {
+    text-align: justify !important;
+    text-justify: inter-word;
+    word-spacing: 0.1em;
+  }
+  
+  /* Ensure justify works with RTL text */
+  .ProseMirror p[style*="text-align: justify"][dir="rtl"] {
+    text-align: justify !important;
+    text-justify: inter-word;
+  }
+
+  /* Custom animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  @keyframes bounce {
+    0%, 20%, 53%, 80%, 100% {
+      transform: translate3d(0,0,0);
+    }
+    40%, 43% {
+      transform: translate3d(0, -8px, 0);
+    }
+    70% {
+      transform: translate3d(0, -4px, 0);
+    }
+    90% {
+      transform: translate3d(0, -2px, 0);
+    }
+  }
+
+  /* Animation utility classes */
+  .animate-fade-in-up {
+    animation: fadeInUp 0.3s ease-out;
+  }
+
+  .animate-slide-in-right {
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-bounce-slow {
+    animation: bounce 1s infinite;
+  }
+
+  /* Smooth transitions for all interactive elements */
+  .transition-smooth {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Hover effects */
+  .hover-lift {
+    transition: transform 0.2s ease-out;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Focus ring animations */
+  .focus-ring {
+    transition: box-shadow 0.2s ease-out;
+  }
+
+  .focus-ring:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
   
   /* Urdu Nasta'liq Fonts */
   .font-nastaliq {
@@ -467,7 +579,6 @@
 .horizontal-ruler,
 .vertical-ruler {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 10px;
   line-height: 1;
   position: relative;
 }
@@ -486,7 +597,7 @@
 
 .horizontal-ruler .tick.minor,
 .vertical-ruler .tick.minor {
-  font-size: 8px;
+  /* Font size will be controlled by inline styles */
 }
 
 .margin-handle {
@@ -536,10 +647,32 @@
     0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
+.document-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: 
+    linear-gradient(to right, transparent 0, transparent calc(100% - var(--margin-start, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-start, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-start, 20mm) + 1px), transparent calc(100% - var(--margin-start, 20mm) + 1px)),
+    linear-gradient(to right, transparent 0, transparent calc(var(--margin-end, 20mm) - 1px), rgba(96, 165, 250, 0.2) calc(var(--margin-end, 20mm) - 1px), rgba(96, 165, 250, 0.2) var(--margin-end, 20mm), transparent var(--margin-end, 20mm)),
+    linear-gradient(to bottom, transparent 0, transparent calc(var(--margin-top, 20mm) - 1px), rgba(96, 165, 250, 0.2) calc(var(--margin-top, 20mm) - 1px), rgba(96, 165, 250, 0.2) var(--margin-top, 20mm), transparent var(--margin-top, 20mm)),
+    linear-gradient(to bottom, transparent 0, transparent calc(100% - var(--margin-bottom, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-bottom, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-bottom, 20mm) + 1px), transparent calc(100% - var(--margin-bottom, 20mm) + 1px));
+  border-radius: 12px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.document-container.show-margin-guides::before {
+  opacity: 1;
+}
+
 /* Legacy ruler styles for backward compatibility */
 .ruler {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 10px;
   line-height: 1;
 }
 
@@ -553,7 +686,7 @@
 }
 
 .ruler .tick.minor {
-  font-size: 8px;
+  /* Font size will be controlled by inline styles */
 }
 
 .margin-indicator {
@@ -594,10 +727,10 @@
   pointer-events: none;
   z-index: 1;
   background: 
-    linear-gradient(to right, transparent 0, transparent calc(100% - var(--margin-start, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-start, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-start, 20mm) + 0.75mm), transparent calc(100% - var(--margin-start, 20mm) + 0.75mm)),
-    linear-gradient(to right, transparent 0, transparent calc(var(--margin-end, 20mm) - 0.75mm), rgba(96, 165, 250, 0.2) calc(var(--margin-end, 20mm) - 0.75mm), rgba(96, 165, 250, 0.2) var(--margin-end, 20mm), transparent var(--margin-end, 20mm)),
-    linear-gradient(to bottom, transparent 0, transparent calc(var(--margin-top, 20mm) - 0.75mm), rgba(96, 165, 250, 0.2) calc(var(--margin-top, 20mm) - 0.75mm), rgba(96, 165, 250, 0.2) var(--margin-top, 20mm), transparent var(--margin-top, 20mm)),
-    linear-gradient(to bottom, transparent 0, transparent calc(100% - var(--margin-bottom, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-bottom, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-bottom, 20mm) + 0.75mm), transparent calc(100% - var(--margin-bottom, 20mm) + 0.75mm));
+    linear-gradient(to right, transparent 0, transparent calc(100% - var(--margin-start, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-start, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-start, 20mm) + 1px), transparent calc(100% - var(--margin-start, 20mm) + 1px)),
+    linear-gradient(to right, transparent 0, transparent calc(var(--margin-end, 20mm) - 1px), rgba(96, 165, 250, 0.2) calc(var(--margin-end, 20mm) - 1px), rgba(96, 165, 250, 0.2) var(--margin-end, 20mm), transparent var(--margin-end, 20mm)),
+    linear-gradient(to bottom, transparent 0, transparent calc(var(--margin-top, 20mm) - 1px), rgba(96, 165, 250, 0.2) calc(var(--margin-top, 20mm) - 1px), rgba(96, 165, 250, 0.2) var(--margin-top, 20mm), transparent var(--margin-top, 20mm)),
+    linear-gradient(to bottom, transparent 0, transparent calc(100% - var(--margin-bottom, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-bottom, 20mm)), rgba(96, 165, 250, 0.2) calc(100% - var(--margin-bottom, 20mm) + 1px), transparent calc(100% - var(--margin-bottom, 20mm) + 1px));
   border-radius: 12px;
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -1000,25 +1133,25 @@
     --radius: 0.5rem;
   }
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;

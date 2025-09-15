@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import { Editor } from '@tiptap/react';
 import { layouts, LayoutType } from '../utils/keyboardLayouts';
 
-export const useUrduKeyboard = (editor: Editor | null, layout: LayoutType) => {
+export const useUrduKeyboard = (editor: Editor | null, layout: LayoutType | null) => {
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || !layout) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       // Don't intercept if user is holding Ctrl, Alt, or Cmd (for shortcuts)

@@ -110,13 +110,13 @@ const Ruler: React.FC<RulerProps> = ({
     let newValue;
     if (isDragging === 'right') {
       // For right margin, dragging left should increase margin, dragging right should decrease
-      newValue = Math.max(0, Math.min(50, initialMargin - deltaMm));
+      newValue = Math.max(0, Math.min(100, initialMargin - deltaMm));
     } else if (isDragging === 'bottom') {
       // For bottom margin, dragging up should increase margin, dragging down should decrease
-      newValue = Math.max(0, Math.min(50, initialMargin - deltaMm));
+      newValue = Math.max(0, Math.min(100, initialMargin - deltaMm));
     } else {
       // For left and top margins, normal behavior
-      newValue = Math.max(0, Math.min(50, initialMargin + deltaMm));
+      newValue = Math.max(0, Math.min(100, initialMargin + deltaMm));
     }
 
     onMarginChange(isDragging as 'top' | 'bottom' | 'left' | 'right', newValue);

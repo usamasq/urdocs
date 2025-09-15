@@ -19,7 +19,6 @@ interface PageLayout {
 }
 
 interface RulerSystemProps {
-  documentRef: React.RefObject<HTMLElement>;
   pageLayout: PageLayout;
   zoomLevel: number;
   onMarginChange: (margins: Margins) => void;
@@ -34,7 +33,6 @@ interface TickMark {
 }
 
 const RulerSystem: React.FC<RulerSystemProps> = ({
-  documentRef,
   pageLayout,
   zoomLevel,
   onMarginChange,
@@ -47,6 +45,7 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
   const [isDragging, setIsDragging] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [initialMargins, setInitialMargins] = useState<Margins>(pageLayout.margins);
+  const lastUpdateTime = useRef<number>(0);
 
   // Calculate page dimensions in mm
   const pageDimensions = useMemo(() => {
@@ -68,12 +67,12 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
     return { width, height };
   }, [pageLayout.pageSize, pageLayout.customWidth, pageLayout.customHeight, pageLayout.orientation]);
 
-  // Calculate ruler dimensions in pixels with zoom
+  // Calculate ruler dimensions in pixels (base dimensions - CSS transform handles scaling)
   const rulerDimensions = useMemo(() => {
-    const width = pageDimensions.width * MM_TO_PX * zoomLevel;
-    const height = pageDimensions.height * MM_TO_PX * zoomLevel;
+    const width = pageDimensions.width * MM_TO_PX;
+    const height = pageDimensions.height * MM_TO_PX;
     return { width, height };
-  }, [pageDimensions, zoomLevel]);
+  }, [pageDimensions]);
 
   // Generate tick marks for horizontal ruler
   const horizontalTicks = useMemo((): TickMark[] => {
@@ -83,7 +82,7 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
     
     for (let i = 0; i <= pageDimensions.width; i += minorInterval) {
       const isMajor = i % majorInterval === 0;
-      const position = (i * MM_TO_PX * zoomLevel);
+      const position = (i * MM_TO_PX);
       ticks.push({
         position,
         value: i,
@@ -92,7 +91,7 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
     }
     
     return ticks;
-  }, [pageDimensions.width, zoomLevel]);
+  }, [pageDimensions.width]);
 
   // Generate tick marks for vertical ruler
   const verticalTicks = useMemo((): TickMark[] => {
@@ -102,7 +101,7 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
     
     for (let i = 0; i <= pageDimensions.height; i += minorInterval) {
       const isMajor = i % majorInterval === 0;
-      const position = (i * MM_TO_PX * zoomLevel);
+      const position = (i * MM_TO_PX);
       ticks.push({
         position,
         value: i,
@@ -111,32 +110,33 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
     }
     
     return ticks;
-  }, [pageDimensions.height, zoomLevel]);
+  }, [pageDimensions.height]);
 
-  // Calculate margin positions in pixels with zoom - FIXED for RTL text justification
+  // Calculate margin positions in pixels (base dimensions - CSS transform handles scaling)
   const marginPositions = useMemo(() => {
     const { margins } = pageLayout;
+    const mmToPx = MM_TO_PX;
     
     if (isRTL) {
       // For RTL text (right-justified), invert the margin controls:
       // "Right" margin controls the left side (where text starts)
       // "Left" margin controls the right side (where text ends)
       return {
-        left: margins.right * MM_TO_PX * zoomLevel,  // Right margin value controls left visual position
-        right: (pageDimensions.width - margins.left) * MM_TO_PX * zoomLevel,  // Left margin value controls right visual position
-        top: margins.top * MM_TO_PX * zoomLevel,
-        bottom: (pageDimensions.height - margins.bottom) * MM_TO_PX * zoomLevel
+        left: margins.right * mmToPx,  // Right margin value controls left visual position
+        right: (pageDimensions.width - margins.left) * mmToPx,  // Left margin value controls right visual position
+        top: margins.top * mmToPx,
+        bottom: (pageDimensions.height - margins.bottom) * mmToPx
       };
     } else {
       // For LTR text, normal margin positioning
       return {
-        left: margins.left * MM_TO_PX * zoomLevel,
-        right: (pageDimensions.width - margins.right) * MM_TO_PX * zoomLevel,
-        top: margins.top * MM_TO_PX * zoomLevel,
-        bottom: (pageDimensions.height - margins.bottom) * MM_TO_PX * zoomLevel
+        left: margins.left * mmToPx,
+        right: (pageDimensions.width - margins.right) * mmToPx,
+        top: margins.top * mmToPx,
+        bottom: (pageDimensions.height - margins.bottom) * mmToPx
       };
     }
-  }, [pageLayout.margins, pageDimensions, zoomLevel, isRTL]);
+  }, [pageLayout.margins, pageDimensions, isRTL]);
 
   // Handle margin dragging
   const handleMouseDown = useCallback((e: React.MouseEvent, marginType: string) => {
@@ -151,41 +151,49 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging) return;
 
-    const deltaX = e.clientX - dragStart.x;
-    const deltaY = e.clientY - dragStart.y;
-    const deltaMmX = deltaX / (MM_TO_PX * zoomLevel);
-    const deltaMmY = deltaY / (MM_TO_PX * zoomLevel);
+    const now = performance.now();
+    // Throttle updates to 60fps (16.67ms) for smoother performance
+    if (now - lastUpdateTime.current < 16.67) return;
+    lastUpdateTime.current = now;
 
-    const newMargins = { ...initialMargins };
+    // Use requestAnimationFrame for smoother updates
+    requestAnimationFrame(() => {
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+      const deltaMmX = deltaX / (MM_TO_PX * zoomLevel);
+      const deltaMmY = deltaY / (MM_TO_PX * zoomLevel);
 
-    switch (isDragging) {
-      case 'left':
-        if (isRTL) {
-          // In RTL, the "left" handle controls the right margin value (left side of text)
-          newMargins.right = Math.max(0, Math.min(50, initialMargins.right + deltaMmX));
-        } else {
-          // In LTR, left handle controls left margin
-          newMargins.left = Math.max(0, Math.min(50, initialMargins.left + deltaMmX));
-        }
-        break;
-      case 'right':
-        if (isRTL) {
-          // In RTL, the "right" handle controls the left margin value (right side of text)
-          newMargins.left = Math.max(0, Math.min(50, initialMargins.left + deltaMmX));
-        } else {
-          // In LTR, right handle controls right margin
-          newMargins.right = Math.max(0, Math.min(50, initialMargins.right + deltaMmX));
-        }
-        break;
-      case 'top':
-        newMargins.top = Math.max(0, Math.min(50, initialMargins.top + deltaMmY));
-        break;
-      case 'bottom':
-        newMargins.bottom = Math.max(0, Math.min(50, initialMargins.bottom - deltaMmY));
-        break;
-    }
+      const newMargins = { ...initialMargins };
 
-    onMarginChange(newMargins);
+      switch (isDragging) {
+        case 'left':
+          if (isRTL) {
+            // In RTL, the "left" handle controls the right margin value (left side of text)
+            newMargins.right = Math.max(0, Math.min(100, initialMargins.right + deltaMmX));
+          } else {
+            // In LTR, left handle controls left margin
+            newMargins.left = Math.max(0, Math.min(100, initialMargins.left + deltaMmX));
+          }
+          break;
+        case 'right':
+          if (isRTL) {
+            // In RTL, the "right" handle controls the left margin value (right side of text)
+            newMargins.left = Math.max(0, Math.min(100, initialMargins.left - deltaMmX));
+          } else {
+            // In LTR, right handle controls right margin
+            newMargins.right = Math.max(0, Math.min(100, initialMargins.right + deltaMmX));
+          }
+          break;
+        case 'top':
+          newMargins.top = Math.max(0, Math.min(100, initialMargins.top + deltaMmY));
+          break;
+        case 'bottom':
+          newMargins.bottom = Math.max(0, Math.min(100, initialMargins.bottom - deltaMmY));
+          break;
+      }
+
+      onMarginChange(newMargins);
+    });
   }, [isDragging, dragStart, initialMargins, zoomLevel, isRTL, onMarginChange]);
 
   const handleMouseUp = useCallback(() => {
@@ -195,8 +203,9 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
   // Set up global mouse events for dragging
   useEffect(() => {
     if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      // Use passive: false for mousemove to allow preventDefault if needed
+      document.addEventListener('mousemove', handleMouseMove, { passive: false });
+      document.addEventListener('mouseup', handleMouseUp, { passive: true });
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);

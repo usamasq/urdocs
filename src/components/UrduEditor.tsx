@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -7,10 +7,9 @@ import { FontSize } from '@tiptap/extension-font-size';
 import { Underline } from '@tiptap/extension-underline';
 import { Strike } from '@tiptap/extension-strike';
 import { TextAlign } from '@tiptap/extension-text-align';
-import { FileText } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 import { useUrduKeyboard } from '../hooks/useUrduKeyboard';
 import { LayoutType } from '../utils/keyboardLayouts';
-import LayoutSelector from './LayoutSelector';
 import EditorToolbar from './EditorToolbar';
 import PageSetupSidebar, { PageLayout } from './PageSetupSidebar';
 import LanguageToggle from './LanguageToggle';
@@ -19,10 +18,27 @@ import EnhancedEditorWithRuler from './EnhancedEditorWithRuler';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
+/**
+ * Main Urdu Document Editor Component
+ * 
+ * This is the primary component that orchestrates the entire Urdu document editing experience.
+ * It provides a rich text editor with RTL support, multiple keyboard layouts, advanced typography,
+ * and professional document formatting capabilities.
+ * 
+ * @component
+ * @example
+ * ```tsx
+ * <UrduEditor />
+ * ```
+ * 
+ * @returns {JSX.Element} The main editor interface with toolbar, editor area, and controls
+ */
+
 const UrduEditor: React.FC = () => {
-  const { language } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage } = useLanguage();
+  const { theme, setTheme, toggleTheme } = useTheme();
   const [currentLayout, setCurrentLayout] = useState<LayoutType>('phonetic');
+  const [isKeyboardEnabled, setIsKeyboardEnabled] = useState<boolean>(true);
   const [currentFont, setCurrentFont] = useState<string>('nastaliq');
   const [currentSize, setCurrentSize] = useState<string>('18');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -57,6 +73,8 @@ const UrduEditor: React.FC = () => {
       Strike,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right', 'justify'],
+        defaultAlignment: 'right',
       }),
     ],
     content: `
@@ -74,16 +92,34 @@ const UrduEditor: React.FC = () => {
     },
   });
 
-  // Use the Urdu keyboard hook
-  useUrduKeyboard(editor, currentLayout);
-
-  // Dark mode effect
+  // Load saved preferences on component mount
   useEffect(() => {
-    // Theme is now handled by ThemeProvider
-  }, [theme]);
+    const savedPreferences = localStorage.getItem('urdocs-preferences');
+    if (savedPreferences) {
+      const prefs = JSON.parse(savedPreferences);
+      setCurrentLayout(prefs.keyboardLayout);
+      setIsKeyboardEnabled(prefs.isKeyboardEnabled);
+      setCurrentFont(prefs.preferredFont);
+      setTheme(prefs.theme);
+      setLanguage(prefs.language);
+    }
+    
+    // Clean up old welcome screen localStorage
+    localStorage.removeItem('urdocs-setup-completed');
+  }, []);
 
-  // Handle font family changes
-  const handleFontChange = (font: string) => {
+  // Use the Urdu keyboard hook only if enabled
+  useUrduKeyboard(editor, isKeyboardEnabled ? currentLayout : null);
+
+
+  /**
+   * Handles font family changes in the editor
+   * 
+   * @param {string} font - The font key to apply
+   * @example
+   * handleFontChange('nastaliq') // Applies Noto Nastaliq Urdu font
+   */
+  const handleFontChange = useCallback((font: string) => {
     setCurrentFont(font);
     if (editor) {
       let fontFamily = '';
@@ -158,31 +194,37 @@ const UrduEditor: React.FC = () => {
       
       editor.chain().focus().setFontFamily(fontFamily).run();
     }
-  };
+  }, [editor]);
 
-  // Handle font size changes
-  const handleSizeChange = (size: string) => {
+  /**
+   * Handles font size changes in the editor
+   * 
+   * @param {string} size - The font size in pixels
+   * @example
+   * handleSizeChange('18') // Sets font size to 18px
+   */
+  const handleSizeChange = useCallback((size: string) => {
     setCurrentSize(size);
     if (editor) {
       editor.chain().focus().setFontSize(`${size}px`).run();
     }
-  };
+  }, [editor]);
 
   // Handle page layout changes
-  const handlePageLayoutChange = (newLayout: PageLayout) => {
+  const handlePageLayoutChange = useCallback((newLayout: PageLayout) => {
     setPageLayout(newLayout);
-  };
+  }, []);
 
   // Handle margin guides toggle
-  const handleToggleMarginGuides = () => {
+  const handleToggleMarginGuides = useCallback(() => {
     setPageLayout(prev => ({
       ...prev,
       showMarginGuides: !prev.showMarginGuides
     }));
-  };
+  }, []);
 
   // Handle margin changes from rulers
-  const handleMarginChange = (side: 'top' | 'bottom' | 'left' | 'right', value: number) => {
+  const handleMarginChange = useCallback((side: 'top' | 'bottom' | 'left' | 'right', value: number) => {
     setPageLayout(prev => ({
       ...prev,
       margins: {
@@ -190,19 +232,31 @@ const UrduEditor: React.FC = () => {
         [side]: value
       }
     }));
-  };
+  }, []);
 
+  if (!editor) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground font-nastaliq">
+            {language === 'ur' ? 'ایڈیٹر لوڈ ہو رہا ہے...' : 'Loading editor...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${
       theme === 'dark' ? 'bg-background' : 'bg-muted/30'
     }`}>
       {/* Header */}
-      <div className="border-b border-border bg-card transition-colors duration-200">
+      <div className="border-b border-border bg-card transition-colors duration-200 animate-fade-in-up">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-lg transition-colors duration-200 ${
+              <div className={`p-3 rounded-lg transition-colors duration-200 hover-lift ${
                 theme === 'dark' ? 'bg-primary/20' : 'bg-primary/10'
               }`}>
                 <FileText className={`w-6 h-6 transition-colors duration-200 ${
@@ -222,17 +276,18 @@ const UrduEditor: React.FC = () => {
                 </p>
               </div>
             </div>
-            <LanguageToggle />
+            <div className="animate-slide-in-right">
+              <LanguageToggle />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Toolbar */}
-      <EditorToolbar
+      <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
+        <EditorToolbar
         editor={editor}
-        currentFont={currentFont}
         onFontChange={handleFontChange}
-        currentSize={currentSize}
         onSizeChange={handleSizeChange}
         isDarkMode={theme === 'dark'}
         onToggleDarkMode={toggleTheme}
@@ -241,20 +296,15 @@ const UrduEditor: React.FC = () => {
         onPageSetupClick={() => setIsPageSetupOpen(true)}
         pageLayout={pageLayout}
         onToggleMarginGuides={handleToggleMarginGuides}
-      />
-
-      {/* Layout Selector */}
-      <div className="border-b border-border bg-card transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-4 py-2">
-          <LayoutSelector 
-            currentLayout={currentLayout}
-            onLayoutChange={setCurrentLayout}
-          />
-        </div>
+        currentLayout={currentLayout}
+        onLayoutChange={setCurrentLayout}
+        isKeyboardEnabled={isKeyboardEnabled}
+        onKeyboardToggle={setIsKeyboardEnabled}
+        />
       </div>
 
       {/* Document Area */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
         <div className="max-w-7xl mx-auto">
           {/* New Enhanced Editor with Ruler System */}
           <EnhancedEditorWithRuler
