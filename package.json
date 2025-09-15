@@ -10,15 +10,32 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-slot": "^1.2.3",
     "@supabase/supabase-js": "^2.57.4",
     "@tiptap/extension-font-family": "^3.4.2",
+    "@tiptap/extension-font-size": "^3.0.0-next.3",
+    "@tiptap/extension-strike": "^3.4.2",
+    "@tiptap/extension-text-align": "^3.4.2",
     "@tiptap/extension-text-style": "^3.4.2",
     "@tiptap/extension-underline": "^3.4.2",
     "@tiptap/react": "^3.4.2",
     "@tiptap/starter-kit": "^3.4.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "docx": "^9.5.1",
+    "dom-to-svg": "^0.12.2",
+    "html-docx-js": "^0.3.1",
+    "html2canvas": "^1.4.1",
+    "html2pdf.js": "^0.12.0",
+    "jspdf": "^3.0.2",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
