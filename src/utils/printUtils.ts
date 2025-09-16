@@ -2,6 +2,42 @@
  * Utility functions for print and PDF export functionality
  */
 
+import { findOptimalTextBreakPoint, findLineEndPosition, findCompleteLineBoundary } from './pageBreakUtils';
+
+// Local function to find the next complete element boundary to avoid splitting content
+const findNextElementBoundary = (
+  editorElement: HTMLElement,
+  targetPosition: number,
+  searchRange: number = 150
+): number => {
+  if (!editorElement) return targetPosition;
+
+  // Get all block-level elements that should not be split
+  const blockElements = editorElement.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote, hr, pre, table');
+  
+  let nextBoundary = targetPosition;
+  let minDistance = Infinity;
+
+  for (const element of blockElements) {
+    const rect = element.getBoundingClientRect();
+    const editorRect = editorElement.getBoundingClientRect();
+    const elementTop = rect.top - editorRect.top;
+    const elementBottom = rect.bottom - editorRect.top;
+
+    // Check if this element starts after our target position
+    if (elementTop > targetPosition && elementTop <= targetPosition + searchRange) {
+      const distance = elementTop - targetPosition;
+      if (distance < minDistance) {
+        minDistance = distance;
+        nextBoundary = elementTop;
+      }
+    }
+  }
+
+  return nextBoundary;
+};
+
+
 export interface PrintOptions {
   pageSize?: 'A4' | 'Letter' | 'Custom';
   orientation?: 'portrait' | 'landscape';
@@ -39,6 +75,25 @@ export const prepareForPrint = (options: PrintOptions = defaultPrintOptions) => 
   const style = document.createElement('style');
   style.id = 'print-styles';
   style.textContent = `
+    /* Global print styles - applied immediately */
+    .print-hidden {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      height: 0 !important;
+      width: 0 !important;
+      overflow: hidden !important;
+    }
+    
+    div[class*="page-break"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      height: 0 !important;
+      width: 0 !important;
+      overflow: hidden !important;
+    }
+    
     @media print {
       body {
         margin: 0 !important;
@@ -52,8 +107,36 @@ export const prepareForPrint = (options: PrintOptions = defaultPrintOptions) => 
       .ruler-system,
       .debug-info,
       button,
-      .btn {
+      .btn,
+      .page-break-indicators,
+      .page-break-line,
+      .page-break-label,
+      .page-number,
+      .overflow-indicator,
+      .overflow-indicator-container,
+      .overflow-warning-badge,
+      .current-page-indicator,
+      .margin-handle,
+      .horizontal-ruler,
+      .vertical-ruler,
+      .ruler-system {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+      }
+      
+      /* Force hide page break elements with inline styles */
+      div[class*="page-break"],
+      .print-hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
       }
       
       /* Legacy support for old components */
@@ -267,13 +350,28 @@ export const createPrintPages = (
   const pageWidthPx = pageWidth * mmToPx;
   const pageHeightPx = pageHeightMm * mmToPx;
 
-  // Create individual pages
-  // For single-page documents, pageBreakPositions will be empty, so we create 1 page
-  // For multi-page documents, we create pageBreakPositions.length + 1 pages
-  const totalPages = Math.max(1, pageBreakPositions.length + 1);
+  // Calculate available content height per page (excluding margins)
+  const marginTopPx = margins.top * mmToPx;
+  const marginBottomPx = margins.bottom * mmToPx;
+  const availableContentHeight = pageHeightPx - marginTopPx - marginBottomPx;
+
+  // Calculate total content height
+  const totalContentHeight = contentElement.scrollHeight;
+  
+  // Calculate how many pages we actually need based on content height
+  const calculatedPageCount = Math.max(1, Math.ceil(totalContentHeight / availableContentHeight));
+  
+  // Use the maximum of calculated pages and provided page break positions
+  const totalPages = Math.max(calculatedPageCount, pageBreakPositions.length + 1);
   
   if (process.env.NODE_ENV === 'development') {
-    console.log('Creating print pages:', { totalPages, pageBreakPositions });
+    console.log('Creating print pages:', { 
+      totalPages, 
+      pageBreakPositions, 
+      totalContentHeight, 
+      availableContentHeight,
+      calculatedPageCount 
+    });
   }
   
   for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
@@ -327,22 +425,69 @@ export const createPrintPages = (
       }
     }
     
+    // Convert margins from mm to pixels for consistent rendering
+    const mmToPx = 3.7795275591;
+    const marginTopPx = margins.top * mmToPx;
+    const marginRightPx = margins.right * mmToPx;
+    const marginBottomPx = margins.bottom * mmToPx;
+    const marginLeftPx = margins.left * mmToPx;
+    
     // Override only the necessary properties for print
     contentArea.style.cssText += `
       width: 100% !important;
       height: 100% !important;
-      padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm !important;
+      padding: ${marginTopPx}px ${marginRightPx}px ${marginBottomPx}px ${marginLeftPx}px !important;
       box-sizing: border-box !important;
       overflow: hidden !important;
       position: relative !important;
     `;
 
     // Clone the original content with all styles preserved
-    const clonedContent = contentElement.cloneNode(true) as HTMLElement;
+    let clonedContent = contentElement.cloneNode(true) as HTMLElement;
+    
+    // Remove UI elements from cloned content
+    const uiElementsToRemove = [
+      '.page-break-indicators',
+      '.page-break-line', 
+      '.page-break-label',
+      '.page-number',
+      '.overflow-indicator',
+      '.overflow-indicator-container',
+      '.overflow-warning-badge',
+      '.current-page-indicator',
+      '.margin-handle',
+      '.horizontal-ruler',
+      '.vertical-ruler',
+      '.ruler-system',
+      '.print-hidden'
+    ];
+    
+    uiElementsToRemove.forEach(selector => {
+      const elements = clonedContent.querySelectorAll(selector);
+      elements.forEach(element => element.remove());
+    });
+    
+    // Also remove any elements with page-break in their class name
+    const pageBreakElements = clonedContent.querySelectorAll('[class*="page-break"]');
+    pageBreakElements.forEach(element => element.remove());
+    
+    // Remove any elements with inline styles that might be page break indicators
+    const allElements = clonedContent.querySelectorAll('*');
+    allElements.forEach(element => {
+      const htmlElement = element as HTMLElement;
+      if (htmlElement.style) {
+        const style = htmlElement.style;
+        // Check for page break indicator styles
+        if (style.background && style.background.includes('linear-gradient') && 
+            (style.background.includes('ef4444') || style.background.includes('dc2626') || 
+             style.background.includes('3b82f6') || style.background.includes('2563eb'))) {
+          element.remove();
+        }
+      }
+    });
     
     // Copy all computed styles from the original element
     const originalStyles = window.getComputedStyle(contentElement);
-    const clonedStyles = window.getComputedStyle(clonedContent);
     
     // Apply all original styles to the cloned content
     for (let i = 0; i < originalStyles.length; i++) {
@@ -353,52 +498,147 @@ export const createPrintPages = (
       }
     }
     
-    // Override only the necessary properties for print
-    clonedContent.style.cssText += `
-      width: 100% !important;
-      height: 100% !important;
-      overflow: hidden !important;
-      position: relative !important;
-      transform: none !important;
-    `;
-
-    // Calculate content positioning for this page
-    let startPosition = 0;
-    let endPosition = contentElement.scrollHeight;
+  // Calculate content positioning for this page with smart text-aware breaks
+  let startPosition = 0;
+  let endPosition = totalContentHeight;
+  
+  if (totalPages > 1) {
+    // Multi-page document - calculate positions based on available height
+    startPosition = pageIndex * availableContentHeight;
+    endPosition = Math.min((pageIndex + 1) * availableContentHeight, totalContentHeight);
     
+    // If we have specific page break positions, use them EXACTLY as they are
+    // This ensures print preview matches editor indicators perfectly
     if (pageBreakPositions.length > 0) {
-      // Multi-page document
       if (pageIndex === 0) {
-        // First page starts at 0
         startPosition = 0;
         endPosition = pageBreakPositions[0];
       } else if (pageIndex < pageBreakPositions.length) {
-        // Middle pages start after the previous page break
         startPosition = pageBreakPositions[pageIndex - 1];
         endPosition = pageBreakPositions[pageIndex];
       } else {
-        // Last page starts after the last page break
         startPosition = pageBreakPositions[pageBreakPositions.length - 1];
-        endPosition = contentElement.scrollHeight;
+        endPosition = totalContentHeight;
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Print Page ${pageIndex}] Using exact page break positions:`, {
+          startPosition,
+          endPosition,
+          pageBreakPositions
+        });
       }
     } else {
-      // Single-page document - show all content
-      startPosition = 0;
-      endPosition = contentElement.scrollHeight;
+      // Apply smart text-aware breaks even when no explicit page breaks are provided
+      const rawStartPosition = pageIndex * availableContentHeight;
+      const rawEndPosition = Math.min((pageIndex + 1) * availableContentHeight, totalContentHeight);
+      
+      // Find optimal break points for both start and end positions
+      startPosition = findOptimalTextBreakPoint(contentElement, rawStartPosition, 100);
+      endPosition = findOptimalTextBreakPoint(contentElement, rawEndPosition, 100);
+      
+      // For the end position, be more aggressive about pushing content to next page
+      // Find the end of the complete line to avoid splitting lines
+      const lineEndPosition = findCompleteLineBoundary(contentElement, endPosition, 100);
+      if (lineEndPosition > endPosition && lineEndPosition <= rawEndPosition + 150) {
+        endPosition = lineEndPosition;
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[Print Page ${pageIndex}] Pushed line to next page:`, {
+            originalEnd: rawEndPosition,
+            lineEnd: lineEndPosition,
+            adjustment: lineEndPosition - rawEndPosition
+          });
+        }
+      }
+      
+      // Additional safety check: if the end position is very close to the raw position,
+      // push it further to ensure we don't split content
+      const minPushDistance = 20; // Minimum pixels to push content to next page
+      if (endPosition - rawEndPosition < minPushDistance && endPosition < rawEndPosition + 150) {
+        // Find the next complete element boundary
+        const nextElementBoundary = findNextElementBoundary(contentElement, endPosition, 150);
+        if (nextElementBoundary > endPosition) {
+          endPosition = nextElementBoundary;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Print Page ${pageIndex}] Pushed to next element boundary:`, {
+              originalEnd: rawEndPosition,
+              elementBoundary: nextElementBoundary,
+              adjustment: nextElementBoundary - rawEndPosition
+            });
+          }
+        }
+      }
+      
+      // Ensure we don't go backwards or create invalid ranges
+      if (startPosition > rawStartPosition && pageIndex > 0) {
+        startPosition = rawStartPosition; // Don't go backwards on start
+      }
+      if (endPosition < rawEndPosition && pageIndex < totalPages - 1) {
+        endPosition = rawEndPosition; // Don't go forwards on end unless it's the last page
+      }
     }
+  }
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`Page ${pageIndex}:`, { startPosition, endPosition, contentHeight: contentElement.scrollHeight });
+      console.log(`Page ${pageIndex}:`, { 
+        startPosition, 
+        endPosition, 
+        totalContentHeight,
+        availableContentHeight,
+        contentForThisPage: endPosition - startPosition
+      });
     }
     
-    // Apply transform to show only the content for this page
-    // Move content up by the start position to show the correct portion
-    const translateY = -startPosition;
-    clonedContent.style.transform = `translateY(${translateY}px)`;
-    clonedContent.style.height = `${endPosition - startPosition}px`;
+    // Use a simpler approach: create a viewport that shows only the content for this page
+    // This prevents content repetition and ensures clean page boundaries
+    const contentHeight = endPosition - startPosition;
+    
+    // Create a viewport container that will show only the relevant content
+    const viewport = document.createElement('div');
+    viewport.className = 'content-viewport';
+    viewport.style.cssText = `
+      width: 100% !important;
+      height: ${contentHeight}px !important;
+      overflow: hidden !important;
+      position: relative !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    `;
+    
+    // Position the cloned content to show only the relevant portion
+    clonedContent.style.cssText += `
+      width: 100% !important;
+      height: auto !important;
+      overflow: visible !important;
+      position: absolute !important;
+      top: ${-startPosition}px !important;
+      left: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    `;
+    
+    // Add the content to the viewport
+    viewport.appendChild(clonedContent);
+    
+    // Use the viewport instead of the raw content
+    clonedContent = viewport;
     
     // Ensure the content area shows the full height of this page's content
-    contentArea.style.height = `${endPosition - startPosition}px`;
+    // Account for the padding (margins) in the content area
+    contentArea.style.height = `${contentHeight}px`;
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Print Page ${pageIndex}] Margin and positioning:`, {
+        margins: `${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm`,
+        marginPx: `${marginTopPx}px ${marginRightPx}px ${marginBottomPx}px ${marginLeftPx}px`,
+        contentHeight,
+        startPosition,
+        endPosition,
+        translateY: -startPosition
+      });
+    }
 
     contentArea.appendChild(clonedContent);
     pageElement.appendChild(contentArea);
@@ -424,17 +664,70 @@ export const prepareDynamicPageEditorForPrint = (
   const documentContainer = document.querySelector('.document-container') as HTMLElement;
   const contentElement = document.querySelector('.editor-content .ProseMirror') as HTMLElement;
   
-  if (!documentContainer || !contentElement) {
+  // Ensure we're using the same content element that the editor uses for page break calculations
+  let finalContentElement = contentElement;
+  if (!finalContentElement) {
+    console.warn('Could not find .editor-content .ProseMirror element, trying alternative selectors');
+    finalContentElement = document.querySelector('.ProseMirror') as HTMLElement;
+    if (finalContentElement) {
+      console.log('Using alternative ProseMirror element');
+    }
+  }
+  
+  if (!documentContainer || !finalContentElement) {
     console.warn('Could not find document container or content element for print');
     return () => {};
   }
 
   const pageHeight = options.pageSize === 'Letter' ? 279 * 3.7795275591 : 297 * 3.7795275591;
   
+  // If no page break positions provided, try to get them from the editor's data attribute
+  let finalPageBreakPositions = pageBreakPositions;
+  if (finalPageBreakPositions.length === 0) {
+    const pageBreaksData = finalContentElement.getAttribute('data-page-breaks');
+    if (pageBreaksData) {
+      try {
+        finalPageBreakPositions = JSON.parse(pageBreaksData);
+        console.log('Using page break positions from data attribute:', finalPageBreakPositions);
+      } catch (e) {
+        console.warn('Failed to parse page break positions from data attribute:', e);
+      }
+    }
+  }
+  
+  // Use the provided page break positions exactly as they are
+  // This ensures print preview matches editor indicators perfectly
+  if (finalPageBreakPositions.length > 0) {
+    console.log('Using provided page break positions for print preview:', finalPageBreakPositions);
+    console.log('Content element height:', finalContentElement.scrollHeight);
+    console.log('Content element client height:', finalContentElement.clientHeight);
+    console.log('Content element offset height:', finalContentElement.offsetHeight);
+  } else {
+    // Only recalculate if no positions are provided
+    const currentContentHeight = finalContentElement.scrollHeight;
+    const availableContentHeight = pageHeight - (options.margins?.top || 20) * 3.7795275591 - (options.margins?.bottom || 20) * 3.7795275591;
+    
+    const newPageCount = Math.max(1, Math.ceil(currentContentHeight / availableContentHeight));
+    finalPageBreakPositions = [];
+    for (let i = 1; i < newPageCount; i++) {
+      finalPageBreakPositions.push(i * availableContentHeight);
+    }
+    
+    // Apply smart text-aware breaks
+    finalPageBreakPositions = finalPageBreakPositions.map(pos => {
+      const optimalPos = findOptimalTextBreakPoint(finalContentElement, pos, 80);
+      // Also apply line boundary detection to prevent line splitting
+      const lineBoundary = findCompleteLineBoundary(finalContentElement, optimalPos, 100);
+      return lineBoundary > optimalPos ? lineBoundary : optimalPos;
+    });
+    
+    console.log('Calculated new page break positions:', finalPageBreakPositions);
+  }
+  
   // Create print pages with the provided page break positions
   const printContainer = createPrintPages(
-    contentElement,
-    pageBreakPositions,
+    finalContentElement,
+    finalPageBreakPositions,
     pageHeight,
     options.margins || defaultPrintOptions.margins!,
     options.pageSize
@@ -461,8 +754,35 @@ export const prepareDynamicPageEditorForPrint = (
       .ruler-system,
       .debug-info,
       button,
-      .btn {
+      .btn,
+      .page-break-indicators,
+      .page-break-line,
+      .page-break-label,
+      .page-number,
+      .overflow-indicator,
+      .overflow-indicator-container,
+      .overflow-warning-badge,
+      .current-page-indicator,
+      .margin-handle,
+      .horizontal-ruler,
+      .vertical-ruler {
         display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+      }
+      
+      /* Force hide page break elements with inline styles */
+      div[class*="page-break"],
+      .print-hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
       }
       
       /* Hide original document container */
@@ -506,6 +826,28 @@ export const prepareDynamicPageEditorForPrint = (
         height: 100% !important;
         overflow: hidden !important;
         box-sizing: border-box !important;
+        margin: 0 !important;
+      }
+      
+      /* Ensure content is visible in print */
+      .print-content .ProseMirror {
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      
+      /* Ensure proper font rendering in print */
+      .print-content * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      
+      /* Ensure consistent margins across all print pages */
+      .print-page .print-content {
+        padding: ${options.margins?.top || 20}mm ${options.margins?.right || 20}mm ${options.margins?.bottom || 20}mm ${options.margins?.left || 20}mm !important;
       }
     }
   `;

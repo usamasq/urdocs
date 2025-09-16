@@ -102,23 +102,67 @@ const ExportControls: React.FC<ExportControlsProps> = ({ pageLayout }) => {
             }
           }
           
-          // If no page breaks found, try to calculate them
+          // If no page breaks found, try to calculate them based on content height
           if (pageBreakPositions.length === 0) {
             const contentElement = document.querySelector('.editor-content .ProseMirror') as HTMLElement;
             if (contentElement) {
               const contentHeight = contentElement.scrollHeight;
               const pageHeight = printOptions.pageSize === 'Letter' ? 279 * 3.7795275591 : 297 * 3.7795275591;
-              const availableHeight = pageHeight - ((printOptions.margins?.top || 20) + (printOptions.margins?.bottom || 20)) * 3.7795275591;
+              const marginTopPx = (printOptions.margins?.top || 20) * 3.7795275591;
+              const marginBottomPx = (printOptions.margins?.bottom || 20) * 3.7795275591;
+              const availableHeight = pageHeight - marginTopPx - marginBottomPx;
               
-              console.log('Calculating page breaks:', { contentHeight, pageHeight, availableHeight });
+              console.log('Calculating page breaks:', { 
+                contentHeight, 
+                pageHeight, 
+                availableHeight, 
+                marginTopPx, 
+                marginBottomPx 
+              });
               
-              // Calculate approximate page breaks
-              const pageCount = Math.ceil(contentHeight / availableHeight);
-              for (let i = 1; i < pageCount; i++) {
-                pageBreakPositions.push(i * availableHeight);
+              // Calculate page breaks based on available height per page
+              if (contentHeight > availableHeight) {
+                const pageCount = Math.ceil(contentHeight / availableHeight);
+                for (let i = 1; i < pageCount; i++) {
+                  pageBreakPositions.push(i * availableHeight);
+                }
               }
               
               console.log('Calculated page break positions:', pageBreakPositions);
+            }
+          }
+          
+          // Force recalculation of page breaks to handle font size changes
+          // This ensures that font size changes are properly reflected in print preview
+          const contentElement = document.querySelector('.editor-content .ProseMirror') as HTMLElement;
+          if (contentElement && pageBreakPositions.length > 0) {
+            const currentContentHeight = contentElement.scrollHeight;
+            const pageHeight = printOptions.pageSize === 'Letter' ? 279 * 3.7795275591 : 297 * 3.7795275591;
+            const marginTopPx = (printOptions.margins?.top || 20) * 3.7795275591;
+            const marginBottomPx = (printOptions.margins?.bottom || 20) * 3.7795275591;
+            const availableHeight = pageHeight - marginTopPx - marginBottomPx;
+            
+            // Check if content height has changed significantly (indicating font size change)
+            const expectedContentHeight = pageBreakPositions[pageBreakPositions.length - 1] || availableHeight;
+            const heightDifference = Math.abs(currentContentHeight - expectedContentHeight);
+            
+            if (heightDifference > 50) { // 50px threshold for significant change
+              console.log('Font size change detected, recalculating page breaks:', {
+                currentHeight: currentContentHeight,
+                expectedHeight: expectedContentHeight,
+                difference: heightDifference
+              });
+              
+              // Recalculate page breaks based on current content
+              pageBreakPositions.length = 0; // Clear existing positions
+              if (currentContentHeight > availableHeight) {
+                const pageCount = Math.ceil(currentContentHeight / availableHeight);
+                for (let i = 1; i < pageCount; i++) {
+                  pageBreakPositions.push(i * availableHeight);
+                }
+              }
+              
+              console.log('Recalculated page break positions for font size change:', pageBreakPositions);
             }
           }
           
@@ -159,6 +203,10 @@ const ExportControls: React.FC<ExportControlsProps> = ({ pageLayout }) => {
                           box-sizing: border-box;
                           -webkit-print-color-adjust: exact;
                           print-color-adjust: exact;
+                        }
+                        .print-content {
+                          padding: ${printOptions.margins?.top || 20}mm ${printOptions.margins?.right || 20}mm ${printOptions.margins?.bottom || 20}mm ${printOptions.margins?.left || 20}mm !important;
+                          box-sizing: border-box !important;
                         }
                         /* Preserve all original document styling */
                         .document-container {
@@ -277,7 +325,7 @@ const ExportControls: React.FC<ExportControlsProps> = ({ pageLayout }) => {
               // Clone the page element with all its styling preserved
               const clonedPage = pageElement.cloneNode(true) as HTMLElement;
               
-              // Remove UI elements like page numbers and shadows
+              // Remove UI elements like page numbers, shadows, and debug elements
               const pageNumber = clonedPage.querySelector('.page-number');
               if (pageNumber) {
                 pageNumber.remove();
@@ -287,6 +335,34 @@ const ExportControls: React.FC<ExportControlsProps> = ({ pageLayout }) => {
               const overflowIndicator = clonedPage.querySelector('.overflow-indicator');
               if (overflowIndicator) {
                 overflowIndicator.remove();
+              }
+              
+              // Remove page break indicators
+              const pageBreakIndicators = clonedPage.querySelector('.page-break-indicators');
+              if (pageBreakIndicators) {
+                pageBreakIndicators.remove();
+              }
+              
+              // Remove current page indicator
+              const currentPageIndicator = clonedPage.querySelector('.current-page-indicator');
+              if (currentPageIndicator) {
+                currentPageIndicator.remove();
+              }
+              
+              // Remove ruler system
+              const rulerSystem = clonedPage.querySelector('.ruler-system');
+              if (rulerSystem) {
+                rulerSystem.remove();
+              }
+              
+              // Remove margin handles
+              const marginHandles = clonedPage.querySelectorAll('.margin-handle');
+              marginHandles.forEach(handle => handle.remove());
+              
+              // Remove debug information
+              const debugInfo = clonedPage.querySelector('[style*="rgba(0, 0, 0, 0.8)"]');
+              if (debugInfo) {
+                debugInfo.remove();
               }
               
               // Preserve the original styling but remove shadows and borders for print

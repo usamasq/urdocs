@@ -67,20 +67,61 @@ const EnhancedNavigationPanel: React.FC<EnhancedNavigationPanelProps> = ({
     setScrollProgress(Math.min(100, Math.max(0, progress)));
   }, []);
 
-  // Monitor scroll progress
-  useEffect(() => {
+  // DISABLED: Monitor scroll progress to prevent interference with page navigation
+  // useEffect(() => {
+  //   const scrollContainer = getScrollContainer();
+  //   if (!scrollContainer) return;
+
+  //   const handleScroll = () => {
+  //     if (!isAutoScrolling) {
+  //       updateScrollProgress();
+  //     }
+  //   };
+
+  //   scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+  //   return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  // }, [updateScrollProgress, isAutoScrolling]);
+
+  // Scroll to specific page
+  const scrollToPage = useCallback((pageIndex: number) => {
     const scrollContainer = getScrollContainer();
-    if (!scrollContainer) return;
+    if (!scrollContainer) {
+      console.warn('[Navigation Panel] No scroll container found');
+      return;
+    }
 
-    const handleScroll = () => {
-      if (!isAutoScrolling) {
-        updateScrollProgress();
+    // Try to find page break indicators to calculate exact positions
+    const pageBreakLines = document.querySelectorAll('.page-break-line');
+    let scrollPosition = 0;
+
+    if (pageIndex === 0) {
+      // Scroll to top of document
+      scrollPosition = 0;
+    } else if (pageBreakLines && pageBreakLines.length > 0 && pageIndex <= pageBreakLines.length) {
+      // Use actual page break positions - scroll so page break is at top
+      const targetBreak = pageBreakLines[pageIndex - 1] as HTMLElement;
+      if (targetBreak) {
+        const rect = targetBreak.getBoundingClientRect();
+        const containerRect = scrollContainer.getBoundingClientRect();
+        // Calculate position so page break appears at top of viewport
+        scrollPosition = scrollContainer.scrollTop + (rect.top - containerRect.top);
       }
-    };
+    } else {
+      // Fallback: calculate based on container height
+      const containerHeight = scrollContainer.clientHeight;
+      scrollPosition = pageIndex * containerHeight;
+    }
 
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  }, [updateScrollProgress, isAutoScrolling]);
+    console.log('[Navigation Panel] Scrolling to page', pageIndex, 'at position', scrollPosition);
+
+    // Use requestAnimationFrame for smoother scrolling
+    requestAnimationFrame(() => {
+      scrollContainer.scrollTo({
+        top: scrollPosition,
+        behavior: 'smooth'
+      });
+    });
+  }, []);
 
   // Enhanced page navigation with smooth scrolling
   const navigateToPage = useCallback((pageIndex: number) => {
@@ -98,13 +139,16 @@ const EnhancedNavigationPanel: React.FC<EnhancedNavigationPanelProps> = ({
 
     setIsAutoScrolling(true);
     onPageChange(validatedPageIndex);
+    
+    // Scroll to the page
+    scrollToPage(validatedPageIndex);
 
     // Reset auto-scrolling flag after animation
     setTimeout(() => {
       setIsAutoScrolling(false);
       updateScrollProgress();
     }, 1000);
-  }, [currentPage, pageCount, onPageChange, updateScrollProgress]);
+  }, [currentPage, pageCount, onPageChange, updateScrollProgress, scrollToPage]);
 
   // Jump to page handler
   const handleJumpToPage = (e: React.FormEvent) => {

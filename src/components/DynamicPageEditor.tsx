@@ -3,7 +3,6 @@ import { EditorContent } from '@tiptap/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { getPageDimensions, getRTLMarginStyles, getRTLMarginCSSProperties } from '../utils/dimensionUtils';
 import RulerSystem from './RulerSystem';
-import { AlertTriangle, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { 
   calculateOverflowInfo, 
   calculateScrollPosition, 
@@ -67,7 +66,6 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
     contentHeight: 0,
     availableHeight: 0
   });
-  const [showOverflowDetails, setShowOverflowDetails] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [pageBreakPositions, setPageBreakPositions] = useState<number[]>([]);
   const [isProgrammaticScroll, setIsProgrammaticScroll] = useState(false);
@@ -163,6 +161,12 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
       editorElement.setAttribute('data-page-breaks', JSON.stringify(newOverflowInfo.pageBreakPositions));
       console.log('Stored page break positions:', newOverflowInfo.pageBreakPositions);
     }
+    
+    // Force a re-render to update page break indicators
+    // This ensures indicators are positioned correctly after font size changes
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Page Break Indicators] Updated positions:', newOverflowInfo.pageBreakPositions);
+    }
   }, [calculateOverflowInfoCallback, onPageCountChange, onOverflowInfoChange]);
 
   // Scroll to specific page using centralized utility
@@ -246,7 +250,7 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
     };
 
     // Create a custom print preparation that includes page break positions
-    const cleanup = prepareDynamicPageEditorForPrint(printOptions);
+    const cleanup = prepareDynamicPageEditorForPrint(printOptions, pageBreakPositions);
     
     // Override the page break positions in the print preparation
     const printContainer = document.querySelector('.print-pages-container') as HTMLElement;
@@ -328,14 +332,16 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
   }, [pageLayout, zoomLevel, pageBreakPositions]);
 
   // Handle page change from pagination controls - scroll to the page
-  useEffect(() => {
-    if (currentPage !== undefined) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Page Change Effect] Current page changed to:', currentPage);
-      }
-      scrollToPage(currentPage);
-    }
-  }, [currentPage, scrollToPage]);
+  // DISABLED: Page change effect - scroll to new page when currentPage changes
+  // Only update page number, don't auto-scroll while user is working
+  // useEffect(() => {
+  //   if (currentPage !== undefined) {
+  //     if (process.env.NODE_ENV === 'development') {
+  //       console.log('[Page Change Effect] Current page changed to:', currentPage);
+  //     }
+  //     scrollToPage(currentPage);
+  //   }
+  // }, [currentPage, scrollToPage]);
 
   // Auto-detect current page based on cursor position
   useEffect(() => {
@@ -383,14 +389,15 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
           const cursorMovement = Math.abs(currentCursorPosition - lastCursorPosition);
           const shouldAutoScroll = cursorMovement > 50; // 50px threshold
           
-          if (shouldAutoScroll) {
-            // Auto-scroll to cursor's page when actively editing
-            setIsCursorScroll(true);
-            scrollToPage(detectedPage);
-            setTimeout(() => {
-              setIsCursorScroll(false);
-            }, 1000);
-          }
+          // DISABLED: Auto-scroll to cursor's page to prevent interference with page navigation
+          // if (shouldAutoScroll) {
+          //   // Auto-scroll to cursor's page when actively editing
+          //   setIsCursorScroll(true);
+          //   scrollToPage(detectedPage);
+          //   setTimeout(() => {
+          //     setIsCursorScroll(false);
+          //   }, 1000);
+          // }
           
           setLastCursorPosition(currentCursorPosition);
         }
@@ -424,7 +431,7 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
         editor.off('update', handleCursorMove);
       }
     };
-  }, [editor, overflowInfo, pageBreakPositions, currentPage, onPageChange, pageLayout.margins.top, isProgrammaticScroll, isCursorScroll, scrollToPage, lastCursorPosition]);
+  }, [editor, overflowInfo, pageBreakPositions, currentPage, onPageChange, pageLayout.margins.top, isProgrammaticScroll, isCursorScroll, lastCursorPosition]);
 
   // Auto-detect current page based on scroll position using centralized utility
   useEffect(() => {
@@ -517,14 +524,34 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
     if (!editor) return;
 
     const debouncedUpdate = createDebouncedFunction(updateOverflowInfo, 150);
+    const immediateUpdate = () => updateOverflowInfo(); // For critical changes like font size
     
     const handleUpdate = () => {
       debouncedUpdate();
     };
 
+    const handleSelectionUpdate = () => {
+      // Check if this is a font size change by looking at the current selection
+      const selection = editor.state.selection;
+      if (selection && !selection.empty) {
+        const attrs = editor.getAttributes('textStyle');
+        if (attrs.fontSize) {
+          // Font size change detected - update immediately
+          immediateUpdate();
+        } else {
+          debouncedUpdate();
+        }
+      } else {
+        debouncedUpdate();
+      }
+    };
+
     editor.on('update', handleUpdate);
+    editor.on('selectionUpdate', handleSelectionUpdate);
+    
     return () => {
       editor.off('update', handleUpdate);
+      editor.off('selectionUpdate', handleSelectionUpdate);
     };
   }, [editor, updateOverflowInfo]);
 
@@ -574,44 +601,6 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
     return Math.max(baseHeight, extendedHeight);
   }, [dimensions.height, overflowInfo, pageLayout.margins]);
 
-  // Overflow indicator component
-  const OverflowIndicator = () => {
-    if (!overflowInfo.isOverflowing) return null;
-
-    return (
-      <div className="overflow-indicator-container">
-        {/* Main overflow warning */}
-        <div 
-          className={`overflow-warning-badge ${theme === 'dark' ? 'dark' : 'light'}`}
-          onClick={() => setShowOverflowDetails(!showOverflowDetails)}
-        >
-          <AlertTriangle className="w-4 h-4" />
-          <span>Content exceeds single page</span>
-          {showOverflowDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </div>
-
-        {/* Detailed overflow information */}
-        {showOverflowDetails && (
-          <div className={`overflow-details ${theme === 'dark' ? 'dark' : 'light'}`}>
-            <div className="overflow-detail-item">
-              <FileText className="w-4 h-4" />
-              <span>Pages: {overflowInfo.pageCount}</span>
-            </div>
-            <div className="overflow-detail-item">
-              <AlertTriangle className="w-4 h-4" />
-              <span>Overflow: {Math.round(overflowInfo.overflowAmount)}px</span>
-            </div>
-            <div className="overflow-detail-item">
-              <span>Content height: {Math.round(overflowInfo.contentHeight)}px</span>
-            </div>
-            <div className="overflow-detail-item">
-              <span>Available: {Math.round(overflowInfo.availableHeight)}px</span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div 
@@ -657,9 +646,7 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
             ref={documentRef}
             className={`document-container transition-all duration-300 ease-in-out ${
               theme === 'dark' ? 'bg-card' : 'bg-white'
-            } ${pageLayout.showMarginGuides ? 'show-margin-guides' : ''} ${
-              overflowInfo.isOverflowing ? 'overflow-warning' : ''
-            }`}
+            } ${pageLayout.showMarginGuides ? 'show-margin-guides' : ''}`}
             style={{
               width: `${dimensions.width}px`,
               height: `${containerHeight}px`,
@@ -672,99 +659,7 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
               ...getRTLMarginCSSProperties(pageLayout.margins, true)
             } as React.CSSProperties}
           >
-            {/* Overflow Indicator */}
-            <OverflowIndicator />
 
-            {/* Debug Information - Remove in production */}
-            {process.env.NODE_ENV === 'development' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '10px',
-                  left: '10px',
-                  background: 'rgba(0, 0, 0, 0.8)',
-                  color: 'white',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  fontSize: '10px',
-                  zIndex: 25,
-                  fontFamily: 'monospace'
-                }}
-              >
-                <div>Overflowing: {overflowInfo.isOverflowing ? 'YES' : 'NO'}</div>
-                <div>Page Count: {overflowInfo.pageCount}</div>
-                <div>Current Page: {currentPage + 1}</div>
-                <div>Content Height: {Math.round(overflowInfo.contentHeight)}px</div>
-                <div>Available Height: {Math.round(overflowInfo.availableHeight)}px</div>
-                <div>Overflow Amount: {Math.round(overflowInfo.overflowAmount)}px</div>
-                <div>Programmatic Scroll: {isProgrammaticScroll ? 'YES' : 'NO'}</div>
-                <div>Page Break Positions: {pageBreakPositions.join(', ')}</div>
-                <button
-                  onClick={() => {
-                    // Force trigger overflow for testing
-                    const testOverflowInfo = {
-                      isOverflowing: true,
-                      overflowAmount: 200,
-                      pageCount: 2,
-                      contentHeight: overflowInfo.availableHeight + 200,
-                      availableHeight: overflowInfo.availableHeight
-                    };
-                    setOverflowInfo(testOverflowInfo);
-                  }}
-                  style={{
-                    marginTop: '4px',
-                    padding: '2px 6px',
-                    fontSize: '9px',
-                    background: '#007acc',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '2px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Test Overflow
-                </button>
-                <button
-                  onClick={() => {
-                    // Test page navigation
-                    if (onPageChange) {
-                      const nextPage = (currentPage + 1) % overflowInfo.pageCount;
-                      onPageChange(nextPage);
-                    }
-                  }}
-                  style={{
-                    marginTop: '4px',
-                    padding: '2px 6px',
-                    fontSize: '9px',
-                    background: '#28a745',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '2px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Test Navigation
-                </button>
-                <button
-                  onClick={() => {
-                    // Force update overflow info
-                    updateOverflowInfo();
-                  }}
-                  style={{
-                    marginTop: '4px',
-                    padding: '2px 6px',
-                    fontSize: '9px',
-                    background: '#ffc107',
-                    color: 'black',
-                    border: 'none',
-                    borderRadius: '2px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Force Update
-                </button>
-              </div>
-            )}
 
             {/* Content area with dynamic height */}
             <div 
@@ -830,16 +725,39 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
 
             {/* Page break indicators for multi-page content */}
             {showPageBreaks && overflowInfo.isOverflowing && overflowInfo.pageCount > 1 && (
-              <div className="page-break-indicators">
+              <div 
+                className="page-break-indicators print-hidden"
+                key={`page-breaks-${pageBreakPositions.join('-')}`} // Force re-render when positions change
+              >
                 {Array.from({ length: overflowInfo.pageCount - 1 }, (_, index) => {
+                  // Use the actual page break positions instead of calculated positions
+                  // This ensures indicators match the smart page breaks used in print preview
                   const marginTop = pageLayout.margins.top * 3.7795275591;
-                  const breakPosition = (index + 1) * overflowInfo.availableHeight + marginTop;
+                  let breakPosition;
+                  
+                  if (pageBreakPositions && pageBreakPositions.length > index) {
+                    // Use the smart page break position
+                    breakPosition = pageBreakPositions[index];
+                  } else {
+                    // Fallback to calculated position
+                    breakPosition = (index + 1) * overflowInfo.availableHeight + marginTop;
+                  }
+                  
                   const isCurrentPageBreak = currentPage === index + 1;
+                  
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`[Page Break Indicator ${index}]`, {
+                      smartPosition: pageBreakPositions[index],
+                      calculatedPosition: (index + 1) * overflowInfo.availableHeight + marginTop,
+                      finalPosition: breakPosition,
+                      isCurrentPageBreak
+                    });
+                  }
                   
                   return (
                     <div
                       key={index}
-                      className="page-break-line"
+                      className="page-break-line print-hidden"
                       style={{
                         position: 'absolute',
                         top: `${breakPosition}px`,
@@ -867,7 +785,7 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
                       }}
                     >
                       <div
-                        className="page-break-label"
+                        className="page-break-label print-hidden"
                         style={{
                           position: 'absolute',
                           right: '15px',
@@ -894,78 +812,7 @@ const DynamicPageEditor: React.FC<DynamicPageEditorProps> = ({
               </div>
             )}
 
-            {/* Current page indicator - Always show for debugging */}
-            <div
-              className="current-page-indicator"
-              style={{
-                position: 'absolute',
-                top: overflowInfo.isOverflowing && overflowInfo.pageCount > 1 
-                  ? (currentPage === 0 ? '10px' : `${pageBreakPositions[currentPage - 1] || 0}px`)
-                  : '10px',
-                left: '10px',
-                background: theme === 'dark' ? '#3b82f6' : '#2563eb',
-                color: 'white',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontSize: '12px',
-                fontWeight: '600',
-                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                zIndex: 20,
-                pointerEvents: 'none',
-                transition: 'all 0.3s ease',
-                animation: 'pulse 2s infinite'
-              }}
-            >
-              Page {currentPage + 1} of {overflowInfo.pageCount}
-              {overflowInfo.isOverflowing && (
-                <div style={{ fontSize: '10px', opacity: 0.8 }}>
-                  Overflow: {Math.round(overflowInfo.overflowAmount)}px
-                </div>
-              )}
-            </div>
 
-            {/* Force show page break indicators for testing - Remove in production */}
-            {process.env.NODE_ENV === 'development' && overflowInfo.isOverflowing && (
-              <div className="page-break-indicators">
-                <div
-                  className="page-break-line"
-                  style={{
-                    position: 'absolute',
-                    top: `${overflowInfo.availableHeight + (pageLayout.margins.top * 3.7795275591)}px`,
-                    left: '0',
-                    right: '0',
-                    height: '4px',
-                    background: `linear-gradient(90deg, 
-                      transparent 0%, 
-                      #00ff00 20%, 
-                      #00ff00 80%, 
-                      transparent 100%)`,
-                    zIndex: 20,
-                    pointerEvents: 'none',
-                    boxShadow: '0 0 10px rgba(0, 255, 0, 0.5)'
-                  }}
-                >
-                  <div
-                    className="page-break-label"
-                    style={{
-                      position: 'absolute',
-                      right: '15px',
-                      top: '-12px',
-                      background: '#00ff00',
-                      color: 'black',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                    }}
-                  >
-                    TEST Page 2
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>

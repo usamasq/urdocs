@@ -101,11 +101,12 @@ export const calculateOverflowInfo = (
   const rawPageCount = Math.ceil(adjustedContentHeight / availableHeight);
   const pageCount = Math.max(1, Math.min(rawPageCount, 50)); // Cap at 50 pages
   
-  // Calculate page break positions
+  // Calculate page break positions with smart text-aware breaks
   const pageBreakPositions = calculatePageBreakPositions(
     pageCount,
     availableHeight,
-    pageDimensions.marginTop
+    pageDimensions.marginTop,
+    editorElement
   );
 
   return {
@@ -119,23 +120,446 @@ export const calculateOverflowInfo = (
 };
 
 /**
- * Calculate page break positions for navigation
+ * Find the end of a complete line to avoid splitting lines
+ */
+export const findLineEndPosition = (
+  editorElement: HTMLElement,
+  targetPosition: number,
+  searchRange: number = 50
+): number => {
+  if (!editorElement) return targetPosition;
+
+  // Get all text elements that might contain lines
+  const textElements = editorElement.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote');
+  
+  let bestLineEnd = targetPosition;
+  let minDistance = Infinity;
+
+  for (const element of textElements) {
+    const rect = element.getBoundingClientRect();
+    const editorRect = editorElement.getBoundingClientRect();
+    const elementTop = rect.top - editorRect.top;
+    const elementBottom = rect.bottom - editorRect.top;
+
+    // Check if this element intersects with our target position
+    if (elementTop <= targetPosition + searchRange && elementBottom >= targetPosition - searchRange) {
+      // If the target position is within this element, find the end of the line
+      if (targetPosition >= elementTop && targetPosition <= elementBottom) {
+        // Look for line breaks within this element
+        const lineBreaks = element.querySelectorAll('br');
+        for (const br of lineBreaks) {
+          const brRect = br.getBoundingClientRect();
+          const brTop = brRect.top - editorRect.top;
+          
+          if (brTop > targetPosition && brTop <= targetPosition + searchRange) {
+            const distance = brTop - targetPosition;
+            if (distance < minDistance) {
+              minDistance = distance;
+              bestLineEnd = brTop;
+            }
+          }
+        }
+        
+        // If no line breaks found, use the element bottom
+        if (minDistance === Infinity) {
+          const distance = elementBottom - targetPosition;
+          if (distance < searchRange) {
+            minDistance = distance;
+            bestLineEnd = elementBottom;
+          }
+        }
+      }
+    }
+  }
+
+  return bestLineEnd;
+};
+
+/**
+ * Enhanced function to detect if a position would split a line and find the complete line boundary
+ */
+export const findCompleteLineBoundary = (
+  editorElement: HTMLElement,
+  targetPosition: number,
+  searchRange: number = 100
+): number => {
+  if (!editorElement) return targetPosition;
+
+  // Get all text elements that might contain lines
+  const textElements = editorElement.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote');
+  
+  let bestLineEnd = targetPosition;
+  let minDistance = Infinity;
+
+  for (const element of textElements) {
+    const rect = element.getBoundingClientRect();
+    const editorRect = editorElement.getBoundingClientRect();
+    const elementTop = rect.top - editorRect.top;
+    const elementBottom = rect.bottom - editorRect.top;
+
+    // Check if this element intersects with our target position
+    if (elementTop <= targetPosition + searchRange && elementBottom >= targetPosition - searchRange) {
+      // If the target position is within this element, we need to find the complete line
+      if (targetPosition >= elementTop && targetPosition <= elementBottom) {
+        // Calculate the line height for this element
+        const computedStyle = window.getComputedStyle(element);
+        const lineHeight = parseFloat(computedStyle.lineHeight) || parseFloat(computedStyle.fontSize) * 1.2;
+        
+        // Find which line the target position is on
+        const relativePosition = targetPosition - elementTop;
+        const lineNumber = Math.floor(relativePosition / lineHeight);
+        const lineStart = elementTop + (lineNumber * lineHeight);
+        const lineEnd = elementTop + ((lineNumber + 1) * lineHeight);
+        
+        // If the target position is in the middle of a line, push to the end of the line
+        if (targetPosition > lineStart && targetPosition < lineEnd) {
+          const distance = lineEnd - targetPosition;
+          if (distance < minDistance && distance <= searchRange) {
+            minDistance = distance;
+            bestLineEnd = lineEnd;
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[Line Boundary] Found line split at position ${targetPosition}:`, {
+                element: element.tagName,
+                lineStart,
+                lineEnd,
+                lineHeight,
+                lineNumber,
+                distance,
+                adjustment: lineEnd - targetPosition
+              });
+            }
+          }
+        }
+        
+        // Also check for explicit line breaks
+        const lineBreaks = element.querySelectorAll('br');
+        for (const br of lineBreaks) {
+          const brRect = br.getBoundingClientRect();
+          const brTop = brRect.top - editorRect.top;
+          
+          if (brTop > targetPosition && brTop <= targetPosition + searchRange) {
+            const distance = brTop - targetPosition;
+            if (distance < minDistance) {
+              minDistance = distance;
+              bestLineEnd = brTop;
+            }
+          }
+        }
+        
+        // If no line breaks found and no line split detected, use the element bottom
+        if (minDistance === Infinity) {
+          const distance = elementBottom - targetPosition;
+          if (distance < searchRange) {
+            minDistance = distance;
+            bestLineEnd = elementBottom;
+          }
+        }
+      }
+    }
+  }
+
+  return bestLineEnd;
+};
+
+/**
+ * Find optimal text break points to avoid splitting text in the middle
+ */
+export const findOptimalTextBreakPoint = (
+  editorElement: HTMLElement,
+  targetPosition: number,
+  searchRange: number = 100
+): number => {
+  if (!editorElement) return targetPosition;
+
+  // Get all text-containing elements in order of preference for breaks
+  const textElements = editorElement.querySelectorAll('h1, h2, h3, h4, h5, h6, p, div, li, blockquote, hr');
+  
+  let bestBreakPoint = targetPosition;
+  let minDistance = Infinity;
+  let bestPriority = 0; // Higher priority = better break point
+
+  // Priority system: headings > paragraphs > divs > other elements
+  const getElementPriority = (tagName: string): number => {
+    switch (tagName.toLowerCase()) {
+      case 'h1': case 'h2': case 'h3': case 'h4': case 'h5': case 'h6': return 4;
+      case 'hr': return 3;
+      case 'p': return 2;
+      case 'div': return 1;
+      case 'li': case 'blockquote': return 1;
+      default: return 0;
+    }
+  };
+
+  // Search for the best text boundary within the search range
+  for (const element of textElements) {
+    const rect = element.getBoundingClientRect();
+    const editorRect = editorElement.getBoundingClientRect();
+    const elementTop = rect.top - editorRect.top;
+    const elementBottom = rect.bottom - editorRect.top;
+    const elementPriority = getElementPriority(element.tagName);
+
+    // Check if this element is within our search range
+    if (elementTop <= targetPosition + searchRange && elementBottom >= targetPosition - searchRange) {
+      const distanceToStart = Math.abs(elementTop - targetPosition);
+      const distanceToEnd = Math.abs(elementBottom - targetPosition);
+
+      // Prefer element starts over ends, and higher priority elements
+      const isStartBetter = distanceToStart <= distanceToEnd;
+      const distance = isStartBetter ? distanceToStart : distanceToEnd;
+      const breakPoint = isStartBetter ? elementTop : elementBottom;
+
+      // Choose this break point if:
+      // 1. It's closer than our current best, OR
+      // 2. It's the same distance but has higher priority, OR
+      // 3. It's within reasonable distance and has much higher priority
+      const isBetter = (
+        distance < minDistance ||
+        (distance === minDistance && elementPriority > bestPriority) ||
+        (distance <= searchRange * 0.5 && elementPriority > bestPriority + 1)
+      );
+
+      if (isBetter) {
+        minDistance = distance;
+        bestBreakPoint = breakPoint;
+        bestPriority = elementPriority;
+      }
+    }
+  }
+
+  // If we found a good break point within reasonable distance, use it
+  if (minDistance < searchRange) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Smart Break] Found optimal break at ${bestBreakPoint} (distance: ${minDistance}, priority: ${bestPriority})`);
+    }
+    return bestBreakPoint;
+  }
+
+  // Fallback: try to find line breaks within the content
+  const lines = editorElement.querySelectorAll('br');
+  for (const line of lines) {
+    const rect = line.getBoundingClientRect();
+    const editorRect = editorElement.getBoundingClientRect();
+    const lineTop = rect.top - editorRect.top;
+    const distance = Math.abs(lineTop - targetPosition);
+
+    if (distance < minDistance && distance < searchRange) {
+      minDistance = distance;
+      bestBreakPoint = lineTop;
+      bestPriority = 1; // Line breaks have medium priority
+    }
+  }
+
+  // Final fallback: try to find word boundaries using text nodes
+  if (minDistance >= searchRange) {
+    const textNodes = getTextNodesInRange(editorElement, targetPosition - searchRange, targetPosition + searchRange);
+    for (const textNode of textNodes) {
+      const rect = textNode.getBoundingClientRect();
+      const editorRect = editorElement.getBoundingClientRect();
+      const nodeTop = rect.top - editorRect.top;
+      const distance = Math.abs(nodeTop - targetPosition);
+
+      if (distance < minDistance && distance < searchRange) {
+        minDistance = distance;
+        bestBreakPoint = nodeTop;
+        bestPriority = 0; // Text nodes have lowest priority
+      }
+    }
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[Smart Break] Final break point: ${bestBreakPoint} (distance: ${minDistance}, priority: ${bestPriority})`);
+  }
+
+  return bestBreakPoint;
+};
+
+/**
+ * Get text nodes within a specific range for word boundary detection
+ */
+const getTextNodesInRange = (
+  container: HTMLElement,
+  startY: number,
+  endY: number
+): Text[] => {
+  const textNodes: Text[] = [];
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    null
+  );
+
+  let node: Node | null;
+  while (node = walker.nextNode()) {
+    const textNode = node as Text;
+    if (textNode.textContent && textNode.textContent.trim().length > 0) {
+      const rect = textNode.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const nodeTop = rect.top - containerRect.top;
+      
+      if (nodeTop >= startY && nodeTop <= endY) {
+        textNodes.push(textNode);
+      }
+    }
+  }
+
+  return textNodes;
+};
+
+/**
+ * Find the next complete element boundary to avoid splitting content
+ */
+const findNextElementBoundary = (
+  editorElement: HTMLElement,
+  targetPosition: number,
+  searchRange: number = 150
+): number => {
+  if (!editorElement) return targetPosition;
+
+  // Get all block-level elements that should not be split
+  const blockElements = editorElement.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, li, blockquote, hr, pre, table');
+  
+  let nextBoundary = targetPosition;
+  let minDistance = Infinity;
+
+  for (const element of blockElements) {
+    const rect = element.getBoundingClientRect();
+    const editorRect = editorElement.getBoundingClientRect();
+    const elementTop = rect.top - editorRect.top;
+    const elementBottom = rect.bottom - editorRect.top;
+
+    // Check if this element starts after our target position
+    if (elementTop > targetPosition && elementTop <= targetPosition + searchRange) {
+      const distance = elementTop - targetPosition;
+      if (distance < minDistance) {
+        minDistance = distance;
+        nextBoundary = elementTop;
+      }
+    }
+  }
+
+  return nextBoundary;
+};
+
+/**
+ * Calculate page break positions for navigation with smart text-aware breaks
  */
 export const calculatePageBreakPositions = (
   pageCount: number,
   availableHeight: number,
-  marginTop: number
+  marginTop: number,
+  editorElement?: HTMLElement
 ): number[] => {
   if (pageCount <= 1) return [];
 
   const positions: number[] = [];
   
   for (let i = 1; i < pageCount; i++) {
-    const breakPosition = i * availableHeight + marginTop;
+    const rawBreakPosition = i * availableHeight + marginTop;
+    
+    // If we have access to the editor element, find optimal text break point
+    let breakPosition = rawBreakPosition;
+    if (editorElement) {
+      breakPosition = findOptimalTextBreakPoint(editorElement, rawBreakPosition, 80);
+      
+      // Be more aggressive about pushing content to the next page
+      // Find the end of the complete line to avoid splitting lines
+      const lineEndPosition = findCompleteLineBoundary(editorElement, breakPosition, 100);
+      if (lineEndPosition > breakPosition && lineEndPosition <= rawBreakPosition + 150) {
+        breakPosition = lineEndPosition;
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`[Smart Page Break] Page ${i} - Pushed line to next page:`, {
+            rawPosition: rawBreakPosition,
+            optimizedPosition: breakPosition,
+            lineEnd: lineEndPosition,
+            adjustment: breakPosition - rawBreakPosition
+          });
+        }
+      }
+      
+      // Additional safety check: if the break position is very close to the raw position,
+      // push it further to ensure we don't split content
+      const minPushDistance = 20; // Minimum pixels to push content to next page
+      if (breakPosition - rawBreakPosition < minPushDistance && breakPosition < rawBreakPosition + 150) {
+        // Find the next complete element boundary
+        const nextElementBoundary = findNextElementBoundary(editorElement, breakPosition, 150);
+        if (nextElementBoundary > breakPosition) {
+          breakPosition = nextElementBoundary;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Smart Page Break] Page ${i} - Pushed to next element boundary:`, {
+              rawPosition: rawBreakPosition,
+              elementBoundary: nextElementBoundary,
+              adjustment: nextElementBoundary - rawBreakPosition
+            });
+          }
+        }
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Smart Page Break] Page ${i} - Final:`, {
+          rawPosition: rawBreakPosition,
+          finalPosition: breakPosition,
+          totalAdjustment: breakPosition - rawBreakPosition
+        });
+      }
+    }
+    
     positions.push(breakPosition);
   }
   
-  return positions;
+  // Post-process to ensure we don't create overlapping or invalid page ranges
+  return adjustPageBreakPositions(positions, availableHeight, marginTop);
+};
+
+/**
+ * Adjust page break positions to ensure valid page ranges and prevent overlaps
+ */
+export const adjustPageBreakPositions = (
+  positions: number[],
+  availableHeight: number,
+  marginTop: number
+): number[] => {
+  if (positions.length === 0) return positions;
+
+  const adjustedPositions: number[] = [];
+  let lastPosition = marginTop; // Start from the top margin
+
+  for (let i = 0; i < positions.length; i++) {
+    const currentPosition = positions[i];
+    
+    // Ensure minimum page height (at least 50% of available height)
+    const minPageHeight = availableHeight * 0.5;
+    const minPosition = lastPosition + minPageHeight;
+    
+    // Ensure maximum page height (not more than 150% of available height)
+    const maxPageHeight = availableHeight * 1.5;
+    const maxPosition = lastPosition + maxPageHeight;
+    
+    // Adjust position to be within valid bounds
+    let adjustedPosition = Math.max(minPosition, Math.min(currentPosition, maxPosition));
+    
+    // Ensure we don't go backwards
+    if (adjustedPosition <= lastPosition) {
+      adjustedPosition = lastPosition + minPageHeight;
+    }
+    
+    adjustedPositions.push(adjustedPosition);
+    lastPosition = adjustedPosition;
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Page Break Adjustment] Page ${i + 1}:`, {
+        original: currentPosition,
+        adjusted: adjustedPosition,
+        minPosition,
+        maxPosition,
+        pageHeight: adjustedPosition - (i === 0 ? marginTop : adjustedPositions[i - 1])
+      });
+    }
+  }
+  
+  return adjustedPositions;
 };
 
 /**

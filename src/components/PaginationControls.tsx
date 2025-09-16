@@ -35,21 +35,30 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
     if (pageNum >= 1 && pageNum <= pageCount) {
       const targetPageIndex = pageNum - 1;
       onPageChange(targetPageIndex);
-      // Don't call scrollToPage here - let DynamicPageEditor handle it
+      scrollToPage(targetPageIndex);
       setJumpToPage('');
     }
   };
 
   const scrollToPage = (pageIndex: number) => {
+    console.log('[PaginationControls] scrollToPage called with pageIndex:', pageIndex);
     // Get scroll container safely
     const container = getScrollContainer();
     if (!container) {
       console.warn('No scroll container found for page navigation');
       return;
     }
+    console.log('[PaginationControls] Scroll container found:', container);
+    console.log('[PaginationControls] Container scroll info:', {
+      scrollTop: container.scrollTop,
+      scrollHeight: container.scrollHeight,
+      clientHeight: container.clientHeight,
+      canScroll: container.scrollHeight > container.clientHeight
+    });
 
     // Try to find page break indicators to calculate exact positions
     const pageBreakLines = safeQuerySelector('.page-break-line')?.parentElement?.querySelectorAll('.page-break-line');
+    console.log('[PaginationControls] Page break lines found:', pageBreakLines?.length || 0);
     let scrollPosition = 0;
 
     if (pageIndex === 0) {
@@ -80,8 +89,11 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
     // Ensure scroll position is not negative
     scrollPosition = Math.max(0, scrollPosition);
 
+    console.log('[PaginationControls] Calculated scroll position:', scrollPosition);
+
     // Use requestAnimationFrame for smoother scrolling
     requestAnimationFrame(() => {
+      console.log('[PaginationControls] Scrolling to position:', scrollPosition);
       container.scrollTo({ 
         top: scrollPosition, 
         behavior: 'smooth' 
@@ -98,18 +110,28 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   };
 
   const handlePrevPage = () => {
+    console.log('[PaginationControls] handlePrevPage called, currentPage:', currentPage);
     if (currentPage > 0) {
       const newPage = currentPage - 1;
+      console.log('[PaginationControls] Previous page clicked, going to page:', newPage);
       onPageChange(newPage);
-      // Don't call scrollToPage here - let DynamicPageEditor handle it
+      console.log('[PaginationControls] About to call scrollToPage with:', newPage);
+      scrollToPage(newPage);
+    } else {
+      console.log('[PaginationControls] Cannot go to previous page, currentPage is 0');
     }
   };
 
   const handleNextPage = () => {
+    console.log('[PaginationControls] handleNextPage called, currentPage:', currentPage, 'pageCount:', pageCount);
     if (currentPage < pageCount - 1) {
       const newPage = currentPage + 1;
+      console.log('[PaginationControls] Next page clicked, going to page:', newPage);
       onPageChange(newPage);
-      // Don't call scrollToPage here - let DynamicPageEditor handle it
+      console.log('[PaginationControls] About to call scrollToPage with:', newPage);
+      scrollToPage(newPage);
+    } else {
+      console.log('[PaginationControls] Cannot go to next page, currentPage is at max');
     }
   };
 
