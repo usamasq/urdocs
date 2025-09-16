@@ -13,8 +13,8 @@ import { LayoutType } from '../utils/keyboardLayouts';
 import EditorToolbar from './EditorToolbar';
 import PageSetupSidebar, { PageLayout } from './PageSetupSidebar';
 import LanguageToggle from './LanguageToggle';
-import PaginationControls from './PaginationControls';
-import EnhancedEditorWithRuler from './EnhancedEditorWithRuler';
+import EnhancedNavigationPanel from './EnhancedNavigationPanel';
+import DynamicPageEditor from './DynamicPageEditor';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -39,12 +39,15 @@ const UrduEditor: React.FC = () => {
   const { theme, setTheme, toggleTheme } = useTheme();
   const [currentLayout, setCurrentLayout] = useState<LayoutType>('phonetic');
   const [isKeyboardEnabled, setIsKeyboardEnabled] = useState<boolean>(true);
-  const [currentFont, setCurrentFont] = useState<string>('nastaliq');
-  const [currentSize, setCurrentSize] = useState<string>('18');
+  const [, setCurrentFont] = useState<string>('nastaliq');
+  const [, setCurrentSize] = useState<string>('18');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isPageSetupOpen, setIsPageSetupOpen] = useState<boolean>(false);
   const [pageCount, setPageCount] = useState<number>(1);
   const [currentPage, setCurrentPage] = useState<number>(0);
+  const [showPageBreaks, setShowPageBreaks] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [overflowInfo, setOverflowInfo] = useState<any>(null);
   const [pageLayout, setPageLayout] = useState<PageLayout>({
     pageSize: 'A4',
     customWidth: 210,
@@ -223,6 +226,21 @@ const UrduEditor: React.FC = () => {
     }));
   }, []);
 
+  // Handle page breaks toggle
+  const handleTogglePageBreaks = useCallback(() => {
+    setShowPageBreaks(!showPageBreaks);
+  }, [showPageBreaks]);
+
+  // Handle fullscreen toggle
+  const handleToggleFullscreen = useCallback(() => {
+    setIsFullscreen(!isFullscreen);
+  }, [isFullscreen]);
+
+  // Handle overflow info updates
+  const handleOverflowInfoChange = useCallback((info: any) => {
+    setOverflowInfo(info);
+  }, []);
+
   // Handle margin changes from rulers
   const handleMarginChange = useCallback((side: 'top' | 'bottom' | 'left' | 'right', value: number) => {
     setPageLayout(prev => ({
@@ -306,22 +324,32 @@ const UrduEditor: React.FC = () => {
       {/* Document Area */}
       <div className="flex-1 p-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
         <div className="max-w-7xl mx-auto">
-          {/* New Enhanced Editor with Ruler System */}
-          <EnhancedEditorWithRuler
+          {/* Dynamic Page Editor with Overflow Detection */}
+          <DynamicPageEditor
             editor={editor}
             pageLayout={pageLayout}
             zoomLevel={zoomLevel}
             onPageCountChange={setPageCount}
             onMarginChange={handleMarginChange}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            onOverflowInfoChange={handleOverflowInfoChange}
+            showPageBreaks={showPageBreaks}
           />
         </div>
       </div>
 
-      {/* Pagination Controls */}
-      <PaginationControls 
-        pageCount={pageCount} 
-        currentPage={currentPage} 
-        onPageChange={setCurrentPage} 
+      {/* Enhanced Navigation Panel */}
+      <EnhancedNavigationPanel
+        pageCount={pageCount}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        overflowInfo={overflowInfo}
+        isOverflowing={overflowInfo?.isOverflowing || false}
+        onTogglePageBreaks={handleTogglePageBreaks}
+        showPageBreaks={showPageBreaks}
+        onToggleFullscreen={handleToggleFullscreen}
+        isFullscreen={isFullscreen}
       />
 
       {/* Page Setup Sidebar */}

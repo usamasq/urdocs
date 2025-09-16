@@ -35,6 +35,178 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
 
   const handlePrint = () => {
     try {
+      // Check if we're using DynamicPageEditor
+      const documentContainer = document.querySelector('.document-container');
+      const isDynamicPageEditor = documentContainer && !documentContainer.classList.contains('multi-page-editor');
+      
+      if (isDynamicPageEditor) {
+        // Use the new DynamicPageEditor print system
+        const printOptions = {
+          pageSize: pageLayout?.pageSize || 'A4',
+          orientation: pageLayout?.orientation || 'portrait',
+          margins: pageLayout?.margins || { top: 20, bottom: 20, left: 20, right: 20 },
+          scale: 1
+        };
+        
+        // Get page break positions from the editor state
+        let pageBreakPositions: number[] = [];
+        
+        // Look for page break positions in the editor's data attributes
+        const editorElement = document.querySelector('.ProseMirror');
+        if (editorElement) {
+          const pageBreaksData = editorElement.getAttribute('data-page-breaks');
+          if (pageBreaksData) {
+            try {
+              pageBreakPositions = JSON.parse(pageBreaksData);
+              console.log('Print: Found page break positions from data attribute:', pageBreakPositions);
+            } catch (e) {
+              console.warn('Failed to parse page break positions:', e);
+            }
+          }
+        }
+        
+        // If no page breaks found, try to calculate them
+        if (pageBreakPositions.length === 0) {
+          const contentElement = document.querySelector('.editor-content .ProseMirror') as HTMLElement;
+          if (contentElement) {
+            const contentHeight = contentElement.scrollHeight;
+            const pageHeight = printOptions.pageSize === 'Letter' ? 279 * 3.7795275591 : 297 * 3.7795275591;
+            const availableHeight = pageHeight - ((printOptions.margins?.top || 20) + (printOptions.margins?.bottom || 20)) * 3.7795275591;
+            
+            console.log('Print: Calculating page breaks:', { contentHeight, pageHeight, availableHeight });
+            
+            // Calculate approximate page breaks
+            const pageCount = Math.ceil(contentHeight / availableHeight);
+            for (let i = 1; i < pageCount; i++) {
+              pageBreakPositions.push(i * availableHeight);
+            }
+            
+            console.log('Print: Calculated page break positions:', pageBreakPositions);
+          }
+        }
+        
+        // Import the print utilities dynamically to avoid circular dependencies
+        import('../../utils/printUtils').then(({ prepareDynamicPageEditorForPrint }) => {
+          // Prepare for print with separate pages
+          const cleanup = prepareDynamicPageEditorForPrint(printOptions, pageBreakPositions);
+          
+          // Get the print pages container
+          const printContainer = document.querySelector('.print-pages-container');
+          console.log('Print: Print container found:', !!printContainer);
+          
+          if (printContainer) {
+            // Open print window with the prepared pages
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+              printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                  <head>
+                    <title>UrDocs - Print</title>
+                    <meta charset="utf-8">
+                    <style>
+                      @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+                      body { 
+                        margin: 0; 
+                        padding: 0; 
+                        background: white;
+                        font-family: 'Noto Nastaliq Urdu', serif;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                      }
+                      .print-pages-container {
+                        width: 100%;
+                        background: white;
+                      }
+                      .print-page {
+                        margin: 0 auto 10mm auto;
+                        background: white; 
+                        box-sizing: border-box;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                      }
+                      /* Preserve all original document styling */
+                      .document-container {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                      }
+                      .editor-content {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                      }
+                      .ProseMirror {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                      }
+                      .prose-content {
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                      }
+                      @media print {
+                        body { 
+                          padding: 0; 
+                          margin: 0; 
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                        .print-page { 
+                          margin: 0; 
+                          page-break-after: always;
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                        .print-page:last-child {
+                          page-break-after: auto;
+                        }
+                        * {
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    ${printContainer.innerHTML}
+                    <script>
+                      window.onload = function() {
+                        setTimeout(function() {
+                          window.print();
+                        }, 500);
+                      };
+                    </script>
+                  </body>
+                </html>
+              `);
+              printWindow.document.close();
+              printWindow.focus();
+              
+              // Cleanup after printing
+              setTimeout(() => {
+                cleanup();
+              }, 1000);
+            }
+          } else {
+            console.warn('Print: Print container not found, falling back to legacy system');
+            // Fallback to legacy system
+            handleLegacyPrint();
+          }
+        }).catch((error) => {
+          console.error('Print: Error importing print utilities:', error);
+          // Fallback to legacy system
+          handleLegacyPrint();
+        });
+      } else {
+        // Use legacy system for other editors
+        handleLegacyPrint();
+      }
+    } catch (error) {
+      console.error('Error printing document:', error);
+      alert('Failed to print document. Please try again.');
+    }
+  };
+
+  const handleLegacyPrint = () => {
+    try {
       // Create a new window for printing all document pages
       const printWindow = window.open('', '_blank');
       if (printWindow) {

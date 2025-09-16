@@ -635,8 +635,17 @@
     0 2px 4px -1px rgba(0, 0, 0, 0.06),
     0 0 0 1px rgba(0, 0, 0, 0.05);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible; /* Allow content to extend beyond container */
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Overflow warning state */
+.document-container.overflow-warning {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 0 0 2px rgba(239, 68, 68, 0.3),
+    0 0 20px rgba(239, 68, 68, 0.1);
 }
 
 .dark .document-container {
@@ -645,6 +654,163 @@
     0 4px 6px -1px rgba(0, 0, 0, 0.3),
     0 2px 4px -1px rgba(0, 0, 0, 0.2),
     0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.dark .document-container.overflow-warning {
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 2px 4px -1px rgba(0, 0, 0, 0.2),
+    0 0 0 2px rgba(239, 68, 68, 0.4),
+    0 0 20px rgba(239, 68, 68, 0.2);
+}
+
+/* Overflow Indicator Styles */
+.overflow-indicator-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.overflow-warning-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+}
+
+.overflow-warning-badge.light {
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.overflow-warning-badge.dark {
+  background: rgba(239, 68, 68, 0.8);
+  color: white;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.overflow-warning-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.overflow-details {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+  animation: slideDown 0.2s ease-out;
+}
+
+.overflow-details.light {
+  background: rgba(255, 255, 255, 0.95);
+  color: #374151;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.overflow-details.dark {
+  background: rgba(31, 41, 55, 0.95);
+  color: #d1d5db;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.overflow-detail-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.overflow-detail-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Page Break Indicators */
+.page-break-indicators {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.page-break-line {
+  position: relative;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.page-break-label {
+  animation: slideInRight 0.3s ease-out;
+}
+
+/* Animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* Enhanced page number styling */
+.page-number {
+  transition: all 0.2s ease;
+}
+
+.page-number:hover {
+  transform: scale(1.05);
 }
 
 .document-container::before {

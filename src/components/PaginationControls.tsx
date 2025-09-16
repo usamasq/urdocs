@@ -4,6 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getScrollContainer, safeQuerySelector } from '../utils/pageBreakUtils';
 
 interface PaginationControlsProps {
   pageCount: number;
@@ -19,49 +20,73 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   const { language } = useLanguage();
   const [jumpToPage, setJumpToPage] = useState('');
 
+  // Debug logging for pagination state
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[PaginationControls] State:', {
+      pageCount,
+      currentPage,
+      currentPageDisplay: currentPage + 1
+    });
+  }
+
   const handleJumpToPage = (e: React.FormEvent) => {
     e.preventDefault();
     const pageNum = parseInt(jumpToPage);
     if (pageNum >= 1 && pageNum <= pageCount) {
       const targetPageIndex = pageNum - 1;
       onPageChange(targetPageIndex);
-      scrollToPage(targetPageIndex);
+      // Don't call scrollToPage here - let DynamicPageEditor handle it
       setJumpToPage('');
     }
   };
 
   const scrollToPage = (pageIndex: number) => {
-    // Try multiple selectors for different editor types
-    const selectors = [
-      `[data-page-id]`, // SimplifiedMultiPageEditor
-      `[data-page="${pageIndex}"]`, // EnhancedContinuousEditor
-      `.doc-page` // Fallback
-    ];
-    
-    let pageElement: Element | null = null;
-    
-    for (const selector of selectors) {
-      const elements = document.querySelectorAll(selector);
-      if (elements[pageIndex]) {
-        pageElement = elements[pageIndex];
-        break;
-      }
+    // Get scroll container safely
+    const container = getScrollContainer();
+    if (!container) {
+      console.warn('No scroll container found for page navigation');
+      return;
     }
-    
-    if (pageElement) {
-      pageElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start',
-        inline: 'nearest'
-      });
+
+    // Try to find page break indicators to calculate exact positions
+    const pageBreakLines = safeQuerySelector('.page-break-line')?.parentElement?.querySelectorAll('.page-break-line');
+    let scrollPosition = 0;
+
+    if (pageIndex === 0) {
+      // Scroll to top of document
+      scrollPosition = 0;
+    } else if (pageBreakLines && pageBreakLines.length > 0 && pageIndex <= pageBreakLines.length) {
+      // Use actual page break positions with offset for better visibility
+      const targetBreak = pageBreakLines[pageIndex - 1] as HTMLElement;
+      if (targetBreak) {
+        const rect = targetBreak.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        scrollPosition = container.scrollTop + (rect.top - containerRect.top) - 50; // 50px offset
+      }
     } else {
       // Fallback: scroll to approximate position
-      const container = document.querySelector('.flex-1.overflow-y-auto');
-      if (container) {
-        const scrollTop = pageIndex * 800; // Approximate page height
-        container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+      // Try to get the document container height for better calculation
+      const documentContainer = safeQuerySelector('.document-container') as HTMLElement;
+      if (documentContainer) {
+        const containerHeight = documentContainer.clientHeight;
+        scrollPosition = pageIndex * containerHeight - 50; // 50px offset
+      } else {
+        // More accurate fallback using container height
+        const containerHeight = container.clientHeight;
+        scrollPosition = pageIndex * Math.max(containerHeight, 800) - 50;
       }
     }
+
+    // Ensure scroll position is not negative
+    scrollPosition = Math.max(0, scrollPosition);
+
+    // Use requestAnimationFrame for smoother scrolling
+    requestAnimationFrame(() => {
+      container.scrollTo({ 
+        top: scrollPosition, 
+        behavior: 'smooth' 
+      });
+    });
   };
 
   const handleJumpInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,7 +101,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
     if (currentPage > 0) {
       const newPage = currentPage - 1;
       onPageChange(newPage);
-      scrollToPage(newPage);
+      // Don't call scrollToPage here - let DynamicPageEditor handle it
     }
   };
 
@@ -84,7 +109,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
     if (currentPage < pageCount - 1) {
       const newPage = currentPage + 1;
       onPageChange(newPage);
-      scrollToPage(newPage);
+      // Don't call scrollToPage here - let DynamicPageEditor handle it
     }
   };
 

@@ -62,13 +62,13 @@ const MultiPageEditor: React.FC<MultiPageEditorProps> = ({
     const availableHeight = dimensions.height - dimensions.marginTop - dimensions.marginBottom;
     
     // Get the current page element
-    const currentPageElement = pageRefs.current[pages[currentPage]?.id];
+    const currentPageId = pages[currentPage]?.id;
+    if (!currentPageId) return;
+    
+    const currentPageElement = pageRefs.current[currentPageId];
     if (!currentPageElement) return;
 
     const contentHeight = currentPageElement.scrollHeight;
-    const currentPageId = pages[currentPage]?.id;
-    
-    if (!currentPageId) return;
     
     // Update overflow status in pagination context
     checkPageOverflow(currentPageId, contentHeight, availableHeight);

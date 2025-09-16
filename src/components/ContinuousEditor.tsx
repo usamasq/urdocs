@@ -3,6 +3,7 @@ import { EditorContent } from '@tiptap/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { usePagination } from '../contexts/PaginationContext';
 import { getPageDimensions, getContentDimensions, getRTLPaddingStyles } from '../utils/dimensionUtils';
+import { calculateOverflowInfo, type PageDimensions } from '../utils/pageBreakUtils';
 
 interface ContinuousEditorProps {
   editor: any;
@@ -48,32 +49,27 @@ const ContinuousEditor: React.FC<ContinuousEditorProps> = ({
     if (!contentRef.current || !editor) return;
 
     const dimensions = calculateDimensions();
-    const contentAreaHeight = dimensions.height - dimensions.marginTop - dimensions.marginBottom;
     
     // Get the editor content element
-    const editorElement = contentRef.current.querySelector('.ProseMirror');
+    const editorElement = contentRef.current.querySelector('.ProseMirror') as HTMLElement;
     if (!editorElement) return;
 
-    // Calculate how much content we have
-    const contentHeight = editorElement.scrollHeight;
+    // Use centralized overflow calculation
+    const pageDimensions: PageDimensions = {
+      width: dimensions.width,
+      height: dimensions.height,
+      marginTop: dimensions.marginTop,
+      marginBottom: dimensions.marginBottom,
+      marginLeft: dimensions.marginLeft,
+      marginRight: dimensions.marginRight
+    };
+
+    const overflowInfo = calculateOverflowInfo(editorElement, pageDimensions);
     
-    // Check for overflow
-    const overflowing = contentHeight > contentAreaHeight;
-    const overflowAmount = Math.max(0, contentHeight - contentAreaHeight);
-    
-    setIsOverflowing(overflowing);
-    setOverflowAmount(overflowAmount);
-    
-    // Calculate page count with better precision
-    let newPageCount = 1;
-    if (overflowing) {
-      // Use more accurate calculation considering margins and padding
-      const effectiveContentHeight = contentHeight + (dimensions.marginTop + dimensions.marginBottom);
-      newPageCount = Math.ceil(effectiveContentHeight / dimensions.height);
-    }
-    
-    setPageCount(newPageCount);
-    onPageCountChange?.(newPageCount);
+    setIsOverflowing(overflowInfo.isOverflowing);
+    setOverflowAmount(overflowInfo.overflowAmount);
+    setPageCount(overflowInfo.pageCount);
+    onPageCountChange?.(overflowInfo.pageCount);
     
     // Update pagination context with overflow information
     // Note: checkPageOverflow is not available in this context

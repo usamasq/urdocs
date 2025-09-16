@@ -6,6 +6,7 @@ import { withErrorHandling } from '../../utils/errorHandler';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { prepareDynamicPageEditorForPrint, type PrintOptions } from '../../utils/printUtils';
 
 interface ExportControlsProps {
   pageLayout?: PageLayout;
@@ -70,36 +71,191 @@ const ExportControls: React.FC<ExportControlsProps> = ({ pageLayout }) => {
     
     try {
       await withErrorHandling(async () => {
-        // Use the same perfect logic as the print function for PDF export
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          let pageElements = document.querySelectorAll('.doc-page');
-          console.log('PDF Export: Found .doc-page elements:', pageElements.length);
+        // Check if we're using DynamicPageEditor
+        const documentContainer = document.querySelector('.document-container');
+        const isDynamicPageEditor = documentContainer && !documentContainer.classList.contains('multi-page-editor');
+        
+        if (isDynamicPageEditor) {
+          // Use the new DynamicPageEditor print system
+          const printOptions: PrintOptions = {
+            pageSize: pageLayout?.pageSize || 'A4',
+            orientation: pageLayout?.orientation || 'portrait',
+            margins: pageLayout?.margins || { top: 20, bottom: 20, left: 20, right: 20 },
+            scale: 1
+          };
           
-          // If no .doc-page elements found, try .document-container (EnhancedEditorWithRuler)
-          if (pageElements.length === 0) {
-            pageElements = document.querySelectorAll('.document-container');
-            console.log('PDF Export: Found .document-container elements:', pageElements.length);
-          }
+          // Get page break positions from the editor state
+          // Try to find page break positions from the editor's data attributes or state
+          let pageBreakPositions: number[] = [];
           
-          // If still no elements found, try to find editor content directly
-          if (pageElements.length === 0) {
-            const editorContent = document.querySelector('.editor-content');
-            console.log('PDF Export: Found .editor-content element:', !!editorContent);
-            if (editorContent) {
-              // Create a temporary page container and add it to the document
-              const tempPage = document.createElement('div');
-              tempPage.className = 'doc-page';
-              tempPage.style.position = 'absolute';
-              tempPage.style.left = '-9999px';
-              tempPage.appendChild(editorContent.cloneNode(true));
-              document.body.appendChild(tempPage);
-              pageElements = document.querySelectorAll('.doc-page');
-              console.log('PDF Export: Created temporary .doc-page element');
+          // Look for page break positions in the editor's data attributes
+          const editorElement = document.querySelector('.ProseMirror');
+          if (editorElement) {
+            const pageBreaksData = editorElement.getAttribute('data-page-breaks');
+            if (pageBreaksData) {
+              try {
+                pageBreakPositions = JSON.parse(pageBreaksData);
+                console.log('Found page break positions from data attribute:', pageBreakPositions);
+              } catch (e) {
+                console.warn('Failed to parse page break positions:', e);
+              }
             }
           }
           
-          if (pageElements.length > 0) {
+          // If no page breaks found, try to calculate them
+          if (pageBreakPositions.length === 0) {
+            const contentElement = document.querySelector('.editor-content .ProseMirror') as HTMLElement;
+            if (contentElement) {
+              const contentHeight = contentElement.scrollHeight;
+              const pageHeight = printOptions.pageSize === 'Letter' ? 279 * 3.7795275591 : 297 * 3.7795275591;
+              const availableHeight = pageHeight - ((printOptions.margins?.top || 20) + (printOptions.margins?.bottom || 20)) * 3.7795275591;
+              
+              console.log('Calculating page breaks:', { contentHeight, pageHeight, availableHeight });
+              
+              // Calculate approximate page breaks
+              const pageCount = Math.ceil(contentHeight / availableHeight);
+              for (let i = 1; i < pageCount; i++) {
+                pageBreakPositions.push(i * availableHeight);
+              }
+              
+              console.log('Calculated page break positions:', pageBreakPositions);
+            }
+          }
+          
+          // Prepare for print with separate pages
+          const cleanup = prepareDynamicPageEditorForPrint(printOptions, pageBreakPositions);
+          
+          // Get the print pages container
+          const printContainer = document.querySelector('.print-pages-container');
+          console.log('Print container found:', !!printContainer);
+          
+          if (printContainer) {
+            // Open print window with the prepared pages
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                printWindow.document.write(`
+                  <!DOCTYPE html>
+                  <html>
+                    <head>
+                      <title>UrDocs - PDF Export</title>
+                      <meta charset="utf-8">
+                      <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
+                        body { 
+                          margin: 0; 
+                          padding: 0; 
+                          background: white;
+                          font-family: 'Noto Nastaliq Urdu', serif;
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                        .print-pages-container {
+                          width: 100%;
+                          background: white;
+                        }
+                        .print-page {
+                          margin: 0 auto 10mm auto;
+                          background: white; 
+                          box-sizing: border-box;
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                        /* Preserve all original document styling */
+                        .document-container {
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                        .editor-content {
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                        .ProseMirror {
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                        .prose-content {
+                          -webkit-print-color-adjust: exact;
+                          print-color-adjust: exact;
+                        }
+                        @media print {
+                          body { 
+                            padding: 0; 
+                            margin: 0; 
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                          }
+                          .print-page { 
+                            margin: 0; 
+                            page-break-after: always;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                          }
+                          .print-page:last-child {
+                            page-break-after: auto;
+                          }
+                          * {
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                          }
+                        }
+                      </style>
+                    </head>
+                    <body>
+                      ${printContainer.innerHTML}
+                      <script>
+                        window.onload = function() {
+                          setTimeout(function() {
+                            window.print();
+                          }, 500);
+                        };
+                      </script>
+                    </body>
+                  </html>
+                `);
+              printWindow.document.close();
+              printWindow.focus();
+              
+              // Cleanup after printing
+              setTimeout(() => {
+                cleanup();
+              }, 1000);
+            }
+          } else {
+            console.warn('Print container not found, falling back to legacy system');
+            // Fallback to legacy system if print container creation failed
+            throw new Error('Failed to create print pages');
+          }
+        } else {
+          // Use the legacy system for other editors
+          const printWindow = window.open('', '_blank');
+          if (printWindow) {
+            let pageElements = document.querySelectorAll('.doc-page');
+            console.log('PDF Export: Found .doc-page elements:', pageElements.length);
+            
+            // If no .doc-page elements found, try .document-container (EnhancedEditorWithRuler)
+            if (pageElements.length === 0) {
+              pageElements = document.querySelectorAll('.document-container');
+              console.log('PDF Export: Found .document-container elements:', pageElements.length);
+            }
+            
+            // If still no elements found, try to find editor content directly
+            if (pageElements.length === 0) {
+              const editorContent = document.querySelector('.editor-content');
+              console.log('PDF Export: Found .editor-content element:', !!editorContent);
+              if (editorContent) {
+                // Create a temporary page container and add it to the document
+                const tempPage = document.createElement('div');
+                tempPage.className = 'doc-page';
+                tempPage.style.position = 'absolute';
+                tempPage.style.left = '-9999px';
+                tempPage.appendChild(editorContent.cloneNode(true));
+                document.body.appendChild(tempPage);
+                pageElements = document.querySelectorAll('.doc-page');
+                console.log('PDF Export: Created temporary .doc-page element');
+              }
+            }
+            
+            if (pageElements.length > 0) {
             console.log(`PDF Export: Processing ${pageElements.length} pages`);
             let allPagesHTML = '';
             
@@ -255,11 +411,12 @@ const ExportControls: React.FC<ExportControlsProps> = ({ pageLayout }) => {
               });
             }, 1000);
             
+            } else {
+              throw new Error('No content found to export as PDF');
+            }
           } else {
-            throw new Error('No content found to export as PDF');
+            throw new Error('Failed to open PDF export window. Please check your browser settings.');
           }
-        } else {
-          throw new Error('Failed to open PDF export window. Please check your browser settings.');
         }
       }, 'PDFExport');
     } catch (error) {
