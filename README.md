@@ -1,6 +1,6 @@
 # Urdu Document Editor (UrDocs)
 
-A professional, feature-rich Urdu document editor built with React, TypeScript, and TipTap. Designed specifically for RTL (Right-to-Left) text editing with advanced typography support, print-ready output, and comprehensive Urdu keyboard layouts.
+A professional, enterprise-grade Urdu document editor built with React, TypeScript, and TipTap. Features a revolutionary **Professional Layout Engine** with advanced typography, multi-column layouts, headers, footers, and precise document formatting. Designed specifically for RTL (Right-to-Left) text editing with comprehensive Urdu keyboard layouts.
 
 ## 🌟 Features
 
@@ -11,12 +11,21 @@ A professional, feature-rich Urdu document editor built with React, TypeScript, 
 - **Multiple Keyboard Layouts** - Phonetic, InPage, and CRULP layouts
 - **Real-time Preview** - Live document preview with page simulation
 
+### 📄 **Professional Layout Engine**
+- **Proactive Layout** - Calculates document layout before rendering
+- **Multi-column Support** - Advanced column layouts with balanced content
+- **Headers & Footers** - Professional page numbering and document headers
+- **Typography Rules** - Orphan/widow control, hyphenation, and text flow
+- **Content Handlers** - Specialized handling for tables, images, lists, and more
+- **Performance Optimized** - Debounced calculations and memoized results
+
 ### 📄 **Document Management**
 - **Page Setup** - A4, Letter, and custom page sizes
 - **Margin Control** - Visual margin guides with ruler system
 - **Zoom Controls** - 25% to 300% zoom range
 - **Multi-page Support** - Automatic page flow and pagination
 - **Print Optimization** - Perfect print and PDF export
+- **Layout Toggle** - Switch between Professional and Legacy systems
 
 ### 🎨 **User Experience**
 - **Dark/Light Theme** - Automatic theme switching
@@ -121,9 +130,10 @@ src/
 
 ### Key Components
 
-- **UrduEditor** - Main application component
-- **EditorToolbar** - Modular toolbar system
-- **EnhancedEditorWithRuler** - Editor with ruler system
+- **UrduEditor** - Main application component with layout toggle
+- **EditorToolbar** - Modular toolbar system with professional layout controls
+- **IntegratedProfessionalEditor** - Professional layout engine integration
+- **MultiPageEditor** - Legacy multi-page editor (fallback)
 - **PageSetupSidebar** - Page configuration panel
 - **ErrorBoundary** - Error handling component
 
@@ -131,7 +141,8 @@ src/
 
 - **LanguageContext** - UI language and translations
 - **ThemeContext** - Dark/light theme management
-- **PaginationContext** - Multi-page document state
+- **ProfessionalPaginationContext** - Professional layout engine state
+- **SimplePaginationContext** - Legacy pagination state (fallback)
 
 ## 🎨 Customization
 
@@ -244,21 +255,37 @@ For support, feature requests, or bug reports:
 2. **Create new issue** - Provide detailed description and steps to reproduce
 3. **Join discussions** - Participate in GitHub discussions
 
+## 📚 Documentation
+
+### Technical Documentation
+- **[Professional Layout System](PROFESSIONAL_LAYOUT_SYSTEM.md)** - Comprehensive guide to the new layout engine architecture
+- **[Deployment Guide](DEPLOYMENT.md)** - GitHub Pages deployment instructions
+
+### Architecture Overview
+The application features a revolutionary Professional Layout Engine with:
+- **Proactive Layout Calculation** - Layout calculated before rendering for optimal performance
+- **Multi-Content Support** - Specialized handlers for paragraphs, tables, images, lists, and more
+- **Advanced Typography** - Orphan/widow control, hyphenation, and professional text flow
+- **Extensible Architecture** - Easy to add new content types and layout features
+- **Performance Optimization** - Debounced calculations, memoization, and efficient rendering
+
 ## 🔮 Roadmap
 
 ### Planned Features
-- [ ] Collaborative editing
-- [ ] Document templates
-- [ ] Advanced export formats (DOCX, RTF)
-- [ ] Plugin system
-- [ ] Offline support
-- [ ] Cloud storage integration
+- [ ] **Advanced Content Types** - Forms, interactive elements, media integration
+- [ ] **Collaborative Editing** - Real-time multi-user editing with conflict resolution
+- [ ] **Document Templates** - Predefined layouts and professional document templates
+- [ ] **Export Formats** - Advanced PDF, DOCX, RTF, and LaTeX export
+- [ ] **Plugin Architecture** - Custom content handlers and layout extensions
+- [ ] **Cloud Integration** - Google Drive, Dropbox, and OneDrive sync
+- [ ] **Offline Support** - Progressive Web App with offline editing capabilities
 
 ### Performance Improvements
-- [ ] Virtual scrolling for large documents
-- [ ] Lazy loading for heavy components
-- [ ] Service worker for caching
-- [ ] WebAssembly for complex operations
+- [ ] **Web Workers** - Background processing for layout calculations
+- [ ] **Virtual Scrolling** - Efficient rendering of large documents
+- [ ] **Progressive Rendering** - Incremental page loading for better UX
+- [ ] **Memory Optimization** - Advanced memory management for mobile devices
+- [ ] **WebAssembly** - High-performance text processing and layout algorithms
 
 ---
 

@@ -153,7 +153,8 @@ export const getRTLMarginStyles = (
     paddingTop: `${margins.top}mm`,
     paddingLeft: `${margins.right}mm`,  // UI "right margin" becomes left padding (controls left edge in RTL)
     paddingRight: `${margins.left}mm`,  // UI "left margin" becomes right padding (controls right edge in RTL)
-    paddingBottom: `${margins.bottom}mm`,
+    // Remove paddingBottom - bottom margin will be handled as page break point, not content clipping
+    // paddingBottom: `${margins.bottom}mm`,  // REMOVED: Bottom margin controls page break, not clipping
     boxSizing: 'border-box'
   };
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -9,14 +9,20 @@ import { Strike } from '@tiptap/extension-strike';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { FileText, Loader2 } from 'lucide-react';
 import { useUrduKeyboard } from '../hooks/useUrduKeyboard';
+// useTextShaping removed - HarfBuzz UI elements cleaned up
 import { LayoutType } from '../utils/keyboardLayouts';
 import EditorToolbar from './EditorToolbar';
 import PageSetupSidebar, { PageLayout } from './PageSetupSidebar';
 import LanguageToggle from './LanguageToggle';
 import EnhancedNavigationPanel from './EnhancedNavigationPanel';
-import DynamicPageEditor from './DynamicPageEditor';
+import MultiPageEditor from './MultiPageEditor';
+// TextShapingIndicator removed - HarfBuzz UI elements cleaned up
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useSimplePagination } from '../contexts/SimplePaginationContext';
+// HarfBuzzExtension removed - HarfBuzz UI elements cleaned up
+import PageBreakExtension from '../extensions/PageBreakExtension';
+import { DocumentNode } from '../document/schema/types';
 
 /**
  * Main Urdu Document Editor Component
@@ -37,10 +43,44 @@ import { useTheme } from '../contexts/ThemeContext';
 const UrduEditor: React.FC = () => {
   const { language, setLanguage } = useLanguage();
   const { theme, setTheme, toggleTheme } = useTheme();
+  const { 
+    document, 
+    updateDocument, 
+    updateFromTipTap, 
+    getDocumentAsHtml,
+    initializeWithDefaultContent 
+  } = useSimplePagination();
+
+  // Text shaping removed - HarfBuzz UI elements cleaned up
+
   const [currentLayout, setCurrentLayout] = useState<LayoutType>('phonetic');
   const [isKeyboardEnabled, setIsKeyboardEnabled] = useState<boolean>(true);
   const [, setCurrentFont] = useState<string>('nastaliq');
   const [, setCurrentSize] = useState<string>('18');
+
+  // Initialize document with default content if empty
+  useEffect(() => {
+    // Check if document is truly empty (no content nodes)
+    const hasContent = document.content && document.content.some(node => 
+      node.type === 'paragraph' && node.content && node.content.some(textNode => 
+        textNode.type === 'text' && textNode.text && textNode.text.trim().length > 0
+      )
+    );
+    
+    if (!hasContent) {
+      console.log('[UrduEditor] Document is empty, initializing with default content');
+      initializeWithDefaultContent();
+    }
+  }, [document, initializeWithDefaultContent]);
+
+  // Debug: Log document changes
+  useEffect(() => {
+    console.log('[UrduEditor] Document updated:', {
+      hasContent: !!document.content,
+      contentLength: document.content?.length || 0,
+      contentTypes: document.content?.map(node => node.type) || []
+    });
+  }, [document]);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isPageSetupOpen, setIsPageSetupOpen] = useState<boolean>(false);
   const [pageCount, setPageCount] = useState<number>(1);
@@ -48,6 +88,8 @@ const UrduEditor: React.FC = () => {
   const [showPageBreaks, setShowPageBreaks] = useState<boolean>(true);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [overflowInfo, setOverflowInfo] = useState<any>(null);
+  // Always use professional multi-page editor
+  // showShapingDetails removed - HarfBuzz UI elements cleaned up
   const [pageLayout, setPageLayout] = useState<PageLayout>({
     pageSize: 'A4',
     customWidth: 210,
@@ -79,14 +121,21 @@ const UrduEditor: React.FC = () => {
         alignments: ['left', 'center', 'right', 'justify'],
         defaultAlignment: 'right',
       }),
+      // HarfBuzzExtension removed - HarfBuzz UI elements cleaned up
+      PageBreakExtension,
     ],
-    content: `
-      <p style="text-align: right; font-family: 'Noto Nastaliq Urdu', serif; font-size: 18px;">اردو میں خوش آمدید</p>
-      <p style="text-align: right; font-family: 'Noto Nastaliq Urdu', serif; font-size: 18px;">یہ ایک جدید اردو ایڈیٹر ہے جو نستعلیق فونٹ میں تحریر کی سہولت فراہم کرتا ہے۔</p>
-      <p style="text-align: right; font-family: 'Noto Nastaliq Urdu', serif; font-size: 18px;">آپ یہاں اردو میں تحریر کر سکتے ہیں۔</p>
-      <p style="text-align: right; font-family: 'Noto Nastaliq Urdu', serif; font-size: 18px;"><strong>مختلف کی بورڈ لے آؤٹ</strong> استعمال کریں: <em>Phonetic</em>، <u>InPage</u>، یا CRULP</p>
-      <p style="text-align: right; font-family: 'Noto Nastaliq Urdu', serif; font-size: 18px;">اب آپ <strong>موٹے</strong>، <em>ترچھے</em>، اور <u>خط کشیدہ</u> متن لکھ سکتے ہیں!</p>
-    `,
+    content: getDocumentAsHtml(),
+    onUpdate: ({ editor }) => {
+      try {
+        // Update document state when editor content changes using unified method
+        const editorState = editor.state;
+        updateFromTipTap(editorState.doc);
+        
+        // Text shaping removed - HarfBuzz UI elements cleaned up
+      } catch (error) {
+        console.warn('Editor update error:', error);
+      }
+    },
     editorProps: {
       attributes: {
         class: `editor-content min-h-[400px] p-6 focus:outline-none prose prose-lg max-w-none`,
@@ -107,9 +156,13 @@ const UrduEditor: React.FC = () => {
       setLanguage(prefs.language);
     }
     
+    // Multi-page mode is now always enabled (professional mode)
+    
     // Clean up old welcome screen localStorage
     localStorage.removeItem('urdocs-setup-completed');
   }, []);
+
+  // Multi-page mode is now always enabled, no need to save preference
 
   // Use the Urdu keyboard hook only if enabled
   useUrduKeyboard(editor, isKeyboardEnabled ? currentLayout : null);
@@ -241,7 +294,7 @@ const UrduEditor: React.FC = () => {
     setOverflowInfo(info);
   }, []);
 
-  // Handle margin changes from rulers
+  // Handle margin changes from rulers (for legacy system)
   const handleMarginChange = useCallback((side: 'top' | 'bottom' | 'left' | 'right', value: number) => {
     setPageLayout(prev => ({
       ...prev,
@@ -251,6 +304,7 @@ const UrduEditor: React.FC = () => {
       }
     }));
   }, []);
+
 
   if (!editor) {
     return (
@@ -303,38 +357,42 @@ const UrduEditor: React.FC = () => {
 
       {/* Toolbar */}
       <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-        <EditorToolbar
-        editor={editor}
-        onFontChange={handleFontChange}
-        onSizeChange={handleSizeChange}
-        isDarkMode={theme === 'dark'}
-        onToggleDarkMode={toggleTheme}
-        zoomLevel={zoomLevel}
-        onZoomChange={setZoomLevel}
-        onPageSetupClick={() => setIsPageSetupOpen(true)}
-        pageLayout={pageLayout}
-        onToggleMarginGuides={handleToggleMarginGuides}
-        currentLayout={currentLayout}
-        onLayoutChange={setCurrentLayout}
-        isKeyboardEnabled={isKeyboardEnabled}
-        onKeyboardToggle={setIsKeyboardEnabled}
-        />
+        <div className="flex flex-col gap-2">
+          <EditorToolbar
+            editor={editor}
+            onFontChange={handleFontChange}
+            onSizeChange={handleSizeChange}
+            isDarkMode={theme === 'dark'}
+            onToggleDarkMode={toggleTheme}
+            zoomLevel={zoomLevel}
+            onZoomChange={setZoomLevel}
+            onPageSetupClick={() => setIsPageSetupOpen(true)}
+            pageLayout={pageLayout}
+            onToggleMarginGuides={handleToggleMarginGuides}
+            useMultiPageEditor={true}
+            onToggleEditorMode={undefined}
+            currentLayout={currentLayout}
+            onLayoutChange={setCurrentLayout}
+            isKeyboardEnabled={isKeyboardEnabled}
+            onKeyboardToggle={setIsKeyboardEnabled}
+          />
+          
+          {/* Text Shaping Indicator removed - HarfBuzz UI elements cleaned up */}
+        </div>
       </div>
 
       {/* Document Area */}
       <div className="flex-1 p-4 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
         <div className="max-w-7xl mx-auto">
-          {/* Dynamic Page Editor with Overflow Detection */}
-          <DynamicPageEditor
+          {/* Professional Multi-Page Editor */}
+          <MultiPageEditor
             editor={editor}
             pageLayout={pageLayout}
             zoomLevel={zoomLevel}
+            currentPage={currentPage}
             onPageCountChange={setPageCount}
             onMarginChange={handleMarginChange}
-            currentPage={currentPage}
             onPageChange={setCurrentPage}
-            onOverflowInfoChange={handleOverflowInfoChange}
-            showPageBreaks={showPageBreaks}
           />
         </div>
       </div>

@@ -42,11 +42,38 @@ export interface ContentDimensions {
   marginRight: number;
 }
 
+// ProseMirror Document Types
+export interface DocumentNode {
+  type: string;
+  content?: DocumentNode[];
+  attrs?: Record<string, any>;
+  marks?: Mark[];
+  text?: string;
+}
+
+export interface Mark {
+  type: string;
+  attrs?: Record<string, any>;
+}
+
+export interface DocumentSchema {
+  nodes: Record<string, any>;
+  marks: Record<string, any>;
+}
+
 // Pagination Types
 export interface Page {
   id: string;
-  content: string;
+  content: DocumentNode; // JSON document structure instead of HTML string
   height: number;
+  isOverflowing?: boolean;
+  overflowAmount?: number;
+}
+
+export interface Document {
+  type: 'doc';
+  content: DocumentNode[];
+  attrs?: Record<string, any>;
 }
 
 export interface OverflowStatus {
@@ -90,8 +117,6 @@ export interface EditorToolbarProps {
   onPageSetupClick: () => void;
   pageLayout?: PageLayout;
   onToggleMarginGuides?: () => void;
-  useMultiPageEditor?: boolean;
-  onToggleEditorMode?: () => void;
   // New props for keyboard control
   currentLayout: LayoutType;
   onLayoutChange: (layout: LayoutType) => void;

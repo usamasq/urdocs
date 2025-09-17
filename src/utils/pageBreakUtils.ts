@@ -38,29 +38,55 @@ export const calculateAvailableHeight = (
 
 /**
  * Calculate accurate content height using multiple measurement methods
+ * Now accounts for actual content within margins, not just the editor container
  */
 export const calculateContentHeight = (editorElement: HTMLElement): number => {
-  if (!editorElement) return 0;
+  try {
+    if (!editorElement) {
+      console.warn('[pageBreakUtils] No editor element provided for height calculation');
+      return 0;
+    }
 
-  // Use multiple methods for accuracy
-  const scrollHeight = editorElement.scrollHeight;
-  const clientHeight = editorElement.clientHeight;
-  const offsetHeight = editorElement.offsetHeight;
-  
-  // Use the maximum to ensure we capture all content
-  const contentHeight = Math.max(scrollHeight, clientHeight, offsetHeight);
-  
-  if (process.env.NODE_ENV === 'development') {
-    console.log('calculateContentHeight:', {
-      scrollHeight,
-      clientHeight,
-      offsetHeight,
-      contentHeight,
-      element: editorElement
-    });
+    // First, try to find the actual content area within margins
+    const contentArea = editorElement.querySelector('.absolute.inset-0') || editorElement;
+    
+    // Use multiple methods for accuracy, but prioritize the content area
+    const scrollHeight = contentArea.scrollHeight || 0;
+    const clientHeight = contentArea.clientHeight || 0;
+    const offsetHeight = contentArea.offsetHeight || 0;
+    
+    // Also measure the editor's content to ensure we capture everything
+    const editorScrollHeight = editorElement.scrollHeight || 0;
+    
+    // Use the maximum to ensure we capture all content, but validate each value
+    const validHeights = [scrollHeight, clientHeight, offsetHeight, editorScrollHeight].filter(
+      height => !isNaN(height) && height > 0
+    );
+    
+    if (validHeights.length === 0) {
+      console.warn('[pageBreakUtils] No valid heights found, using fallback');
+      return 100; // Safe fallback
+    }
+    
+    const contentHeight = Math.max(...validHeights);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('calculateContentHeight:', {
+        scrollHeight,
+        clientHeight,
+        offsetHeight,
+        editorScrollHeight,
+        contentHeight,
+        contentArea: contentArea.tagName,
+        validHeights
+      });
+    }
+    
+    return contentHeight;
+  } catch (error) {
+    console.error('[pageBreakUtils] Error calculating content height:', error);
+    return 100; // Safe fallback
   }
-  
-  return contentHeight;
 };
 
 /**
@@ -71,52 +97,95 @@ export const calculateOverflowInfo = (
   pageDimensions: PageDimensions,
   options: PageBreakOptions = {}
 ): OverflowInfo => {
-  const {
-    bufferHeight = 20,
-    minPageHeight = 200,
-    maxPageHeight = 1200
-  } = options;
+  try {
+    const {
+      bufferHeight = 20,
+      minPageHeight = 200,
+      maxPageHeight = 1200
+    } = options;
 
-  if (!editorElement) {
+    if (!editorElement) {
+      console.warn('[pageBreakUtils] No editor element provided for overflow calculation');
+      return {
+        isOverflowing: false,
+        overflowAmount: 0,
+        pageCount: 1,
+        contentHeight: 0,
+        availableHeight: calculateAvailableHeight(pageDimensions),
+        pageBreakPositions: []
+      };
+    }
+
+    // Validate page dimensions
+    if (!pageDimensions || isNaN(pageDimensions.height) || pageDimensions.height <= 0) {
+      console.warn('[pageBreakUtils] Invalid page dimensions:', pageDimensions);
+      return {
+        isOverflowing: false,
+        overflowAmount: 0,
+        pageCount: 1,
+        contentHeight: 0,
+        availableHeight: 0,
+        pageBreakPositions: []
+      };
+    }
+
+    const contentHeight = calculateContentHeight(editorElement);
+    const availableHeight = calculateAvailableHeight(pageDimensions);
+    
+    // Validate calculated values
+    if (isNaN(contentHeight) || isNaN(availableHeight) || availableHeight <= 0) {
+      console.warn('[pageBreakUtils] Invalid calculated dimensions:', {
+        contentHeight,
+        availableHeight,
+        pageDimensions
+      });
+      return {
+        isOverflowing: false,
+        overflowAmount: 0,
+        pageCount: 1,
+        contentHeight: 0,
+        availableHeight: 0,
+        pageBreakPositions: []
+      };
+    }
+    
+    // Add buffer to account for line spacing and margins
+    const adjustedContentHeight = contentHeight + bufferHeight;
+    
+    const isOverflowing = adjustedContentHeight > availableHeight;
+    const overflowAmount = Math.max(0, adjustedContentHeight - availableHeight);
+    
+    // Calculate page count with bounds checking
+    const rawPageCount = Math.ceil(adjustedContentHeight / availableHeight);
+    const pageCount = Math.max(1, Math.min(rawPageCount, 50)); // Cap at 50 pages
+    
+    // Calculate page break positions with smart text-aware breaks
+    const pageBreakPositions = calculatePageBreakPositions(
+      pageCount,
+      availableHeight,
+      pageDimensions.marginTop,
+      editorElement
+    );
+
+    return {
+      isOverflowing,
+      overflowAmount,
+      pageCount,
+      contentHeight: adjustedContentHeight,
+      availableHeight,
+      pageBreakPositions
+    };
+  } catch (error) {
+    console.error('[pageBreakUtils] Error calculating overflow info:', error);
     return {
       isOverflowing: false,
       overflowAmount: 0,
       pageCount: 1,
       contentHeight: 0,
-      availableHeight: calculateAvailableHeight(pageDimensions),
+      availableHeight: 0,
       pageBreakPositions: []
     };
   }
-
-  const contentHeight = calculateContentHeight(editorElement);
-  const availableHeight = calculateAvailableHeight(pageDimensions);
-  
-  // Add buffer to account for line spacing and margins
-  const adjustedContentHeight = contentHeight + bufferHeight;
-  
-  const isOverflowing = adjustedContentHeight > availableHeight;
-  const overflowAmount = Math.max(0, adjustedContentHeight - availableHeight);
-  
-  // Calculate page count with bounds checking
-  const rawPageCount = Math.ceil(adjustedContentHeight / availableHeight);
-  const pageCount = Math.max(1, Math.min(rawPageCount, 50)); // Cap at 50 pages
-  
-  // Calculate page break positions with smart text-aware breaks
-  const pageBreakPositions = calculatePageBreakPositions(
-    pageCount,
-    availableHeight,
-    pageDimensions.marginTop,
-    editorElement
-  );
-
-  return {
-    isOverflowing,
-    overflowAmount,
-    pageCount,
-    contentHeight: adjustedContentHeight,
-    availableHeight,
-    pageBreakPositions
-  };
 };
 
 /**
@@ -177,6 +246,7 @@ export const findLineEndPosition = (
 
 /**
  * Enhanced function to detect if a position would split a line and find the complete line boundary
+ * Now more aggressive about finding paragraph breaks at page margins
  */
 export const findCompleteLineBoundary = (
   editorElement: HTMLElement,
@@ -256,6 +326,35 @@ export const findCompleteLineBoundary = (
           }
         }
       }
+      
+      // NEW: Also check if we should break at the element boundary itself
+      // This is more aggressive and allows paragraph splitting at page margins
+      if (targetPosition >= elementTop && targetPosition <= elementBottom) {
+        // If we're close to the end of a paragraph, prefer breaking there
+        const elementHeight = elementBottom - elementTop;
+        const positionInElement = targetPosition - elementTop;
+        
+        // If we're in the last 30% of the element, prefer breaking at the element end
+        if (positionInElement > elementHeight * 0.7) {
+          const distance = elementBottom - targetPosition;
+          if (distance < minDistance && distance <= searchRange * 1.5) { // Allow larger search range
+            minDistance = distance;
+            bestLineEnd = elementBottom;
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[Paragraph Break] Found paragraph end at position ${targetPosition}:`, {
+                element: element.tagName,
+                elementTop,
+                elementBottom,
+                positionInElement,
+                elementHeight,
+                distance,
+                adjustment: elementBottom - targetPosition
+              });
+            }
+          }
+        }
+      }
     }
   }
 
@@ -270,7 +369,8 @@ export const findOptimalTextBreakPoint = (
   targetPosition: number,
   searchRange: number = 100
 ): number => {
-  if (!editorElement) return targetPosition;
+  try {
+    if (!editorElement) return targetPosition;
 
   // Get all text-containing elements in order of preference for breaks
   const textElements = editorElement.querySelectorAll('h1, h2, h3, h4, h5, h6, p, div, li, blockquote, hr');
@@ -354,15 +454,19 @@ export const findOptimalTextBreakPoint = (
   if (minDistance >= searchRange) {
     const textNodes = getTextNodesInRange(editorElement, targetPosition - searchRange, targetPosition + searchRange);
     for (const textNode of textNodes) {
-      const rect = textNode.getBoundingClientRect();
-      const editorRect = editorElement.getBoundingClientRect();
-      const nodeTop = rect.top - editorRect.top;
-      const distance = Math.abs(nodeTop - targetPosition);
+      // Text nodes don't have getBoundingClientRect, so we need to get it from the parent element
+      const parentElement = textNode.parentElement;
+      if (parentElement) {
+        const rect = parentElement.getBoundingClientRect();
+        const editorRect = editorElement.getBoundingClientRect();
+        const nodeTop = rect.top - editorRect.top;
+        const distance = Math.abs(nodeTop - targetPosition);
 
-      if (distance < minDistance && distance < searchRange) {
-        minDistance = distance;
-        bestBreakPoint = nodeTop;
-        bestPriority = 0; // Text nodes have lowest priority
+        if (distance < minDistance && distance < searchRange) {
+          minDistance = distance;
+          bestBreakPoint = nodeTop;
+          bestPriority = 0; // Text nodes have lowest priority
+        }
       }
     }
   }
@@ -372,6 +476,10 @@ export const findOptimalTextBreakPoint = (
   }
 
   return bestBreakPoint;
+  } catch (error) {
+    console.error('[pageBreakUtils] Error in findOptimalTextBreakPoint:', error);
+    return targetPosition; // Return original position as fallback
+  }
 };
 
 /**
@@ -382,28 +490,48 @@ const getTextNodesInRange = (
   startY: number,
   endY: number
 ): Text[] => {
-  const textNodes: Text[] = [];
-  const walker = document.createTreeWalker(
-    container,
-    NodeFilter.SHOW_TEXT,
-    null
-  );
+  try {
+    // Check if container is a valid DOM node
+    if (!container || !container.nodeType) {
+      console.warn('[pageBreakUtils] Invalid container for getTextNodesInRange');
+      return [];
+    }
 
-  let node: Node | null;
-  while (node = walker.nextNode()) {
-    const textNode = node as Text;
-    if (textNode.textContent && textNode.textContent.trim().length > 0) {
-      const rect = textNode.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const nodeTop = rect.top - containerRect.top;
-      
-      if (nodeTop >= startY && nodeTop <= endY) {
-        textNodes.push(textNode);
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(
+      container,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+
+    let node: Node | null;
+    while (node = walker.nextNode()) {
+      const textNode = node as Text;
+      if (textNode.textContent && textNode.textContent.trim().length > 0) {
+        // Text nodes don't have getBoundingClientRect, so we need to get it from the parent element
+        const parentElement = textNode.parentElement;
+        if (parentElement) {
+          try {
+            const rect = parentElement.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            const nodeTop = rect.top - containerRect.top;
+            
+            if (nodeTop >= startY && nodeTop <= endY) {
+              textNodes.push(textNode);
+            }
+          } catch (error) {
+            // Skip this node if we can't get its position
+            console.warn('[pageBreakUtils] Error getting node position:', error);
+          }
+        }
       }
     }
-  }
 
-  return textNodes;
+    return textNodes;
+  } catch (error) {
+    console.error('[pageBreakUtils] Error in getTextNodesInRange:', error);
+    return [];
+  }
 };
 
 /**
@@ -478,12 +606,14 @@ export const calculatePageBreakPositions = (
         }
       }
       
-      // Additional safety check: if the break position is very close to the raw position,
-      // push it further to ensure we don't split content
-      const minPushDistance = 20; // Minimum pixels to push content to next page
-      if (breakPosition - rawBreakPosition < minPushDistance && breakPosition < rawBreakPosition + 150) {
+      // More aggressive paragraph splitting: if we're close to a page margin,
+      // be more willing to split paragraphs
+      const minPushDistance = 10; // Reduced from 20 to allow more paragraph splitting
+      const maxPushDistance = 200; // Increased to allow splitting longer paragraphs
+      
+      if (breakPosition - rawBreakPosition < minPushDistance && breakPosition < rawBreakPosition + maxPushDistance) {
         // Find the next complete element boundary
-        const nextElementBoundary = findNextElementBoundary(editorElement, breakPosition, 150);
+        const nextElementBoundary = findNextElementBoundary(editorElement, breakPosition, maxPushDistance);
         if (nextElementBoundary > breakPosition) {
           breakPosition = nextElementBoundary;
           
@@ -492,6 +622,25 @@ export const calculatePageBreakPositions = (
               rawPosition: rawBreakPosition,
               elementBoundary: nextElementBoundary,
               adjustment: nextElementBoundary - rawBreakPosition
+            });
+          }
+        }
+      }
+      
+      // NEW: Allow paragraph splitting when content is very close to page margins
+      // This enables more aggressive splitting for better page utilization
+      if (breakPosition - rawBreakPosition < 5) {
+        // If we're very close to the calculated break position, allow splitting
+        // at paragraph boundaries even if it means pushing more content to next page
+        const paragraphBoundary = findCompleteLineBoundary(editorElement, breakPosition, 100);
+        if (paragraphBoundary > breakPosition && paragraphBoundary <= rawBreakPosition + 100) {
+          breakPosition = paragraphBoundary;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Paragraph Split] Page ${i} - Allowing paragraph split at margin:`, {
+              rawPosition: rawBreakPosition,
+              paragraphBoundary,
+              adjustment: paragraphBoundary - rawBreakPosition
             });
           }
         }
@@ -764,49 +913,54 @@ export const safeQuerySelector = (selector: string): Element | null => {
 };
 
 /**
- * Get scroll container safely
+ * Get scroll container safely - simplified version
  */
 export const getScrollContainer = (): Element | null => {
-  // Try multiple common selectors
-  const selectors = [
-    '.flex-1.overflow-y-auto',
-    '.overflow-y-auto',
-    '.scroll-container',
-    'main',
-    'body'
-  ];
+  // Try the main editor container first
+  const editorContainer = document.querySelector('.flex-1.overflow-y-auto') || 
+                         document.querySelector('.overflow-y-auto') ||
+                         document.querySelector('main');
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[GetScrollContainer] Searching for scroll container...');
+  if (editorContainer) {
+    return editorContainer;
   }
   
-  for (const selector of selectors) {
-    const element = safeQuerySelector(selector);
-    if (element) {
-      const hasScroll = element.scrollHeight > element.clientHeight;
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[GetScrollContainer] Found element with selector "${selector}":`, {
-          element,
-          scrollHeight: element.scrollHeight,
-          clientHeight: element.clientHeight,
-          hasScroll
-        });
-      }
-      // Return the first valid container, even if it doesn't currently have scrollable content
-      // This allows scroll functionality to work even when content doesn't overflow
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[GetScrollContainer] Using scroll container: ${selector}`);
-      }
-      return element;
-    } else {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[GetScrollContainer] No element found for selector: ${selector}`);
-      }
-    }
+  // Fallback to body
+  return document.body;
+};
+
+/**
+ * Simple page navigation function
+ */
+export const navigateToPage = (pageIndex: number): boolean => {
+  const scrollContainer = getScrollContainer();
+  if (!scrollContainer) {
+    console.warn('No scroll container found for navigation');
+    return false;
   }
+
+  // For single page documents, just scroll to top
+  if (pageIndex === 0) {
+    scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    return true;
+  }
+
+  // For multi-page documents, try to find page elements
+  const pageElements = document.querySelectorAll('.page, [data-page], .pages-container > div');
   
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('[GetScrollContainer] No scroll container found!');
+  if (pageElements.length > pageIndex) {
+    const targetPage = pageElements[pageIndex] as HTMLElement;
+    const rect = targetPage.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const scrollPosition = scrollContainer.scrollTop + (rect.top - containerRect.top);
+    
+    scrollContainer.scrollTo({ top: scrollPosition, behavior: 'smooth' });
+    return true;
   }
-  return null;
+
+  // Fallback: estimate scroll position based on page height
+  const estimatedPageHeight = 1123; // A4 height in pixels
+  const scrollPosition = pageIndex * estimatedPageHeight;
+  scrollContainer.scrollTo({ top: scrollPosition, behavior: 'smooth' });
+  return true;
 };

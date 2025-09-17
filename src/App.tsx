@@ -3,18 +3,21 @@ import UrduEditor from './components/UrduEditor';
 import ErrorBoundary from './components/ErrorBoundary';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { PaginationProvider } from './contexts/PaginationContext';
+import { HarfBuzzProvider } from './contexts/HarfBuzzContext';
+import { SimplePaginationProvider } from './contexts/SimplePaginationContext';
 
 function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
         <LanguageProvider>
-          <PaginationProvider>
-            <div className="min-h-screen">
-              <UrduEditor />
-            </div>
-          </PaginationProvider>
+          <HarfBuzzProvider>
+            <SimplePaginationProvider>
+              <div className="min-h-screen">
+                <UrduEditor />
+              </div>
+            </SimplePaginationProvider>
+          </HarfBuzzProvider>
         </LanguageProvider>
       </ThemeProvider>
     </ErrorBoundary>

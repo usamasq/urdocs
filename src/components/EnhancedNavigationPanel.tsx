@@ -20,8 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
-  getScrollContainer, 
-  safeQuerySelector,
+  navigateToPage,
   validatePageIndex,
   type OverflowInfo 
 } from '../utils/pageBreakUtils';
@@ -53,109 +52,27 @@ const EnhancedNavigationPanel: React.FC<EnhancedNavigationPanelProps> = ({
   const { theme } = useTheme();
   const [jumpToPage, setJumpToPage] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
 
-  // Calculate scroll progress
-  const updateScrollProgress = useCallback(() => {
-    const scrollContainer = getScrollContainer();
-    if (!scrollContainer) return;
-
-    const scrollTop = scrollContainer.scrollTop;
-    const scrollHeight = scrollContainer.scrollHeight - scrollContainer.clientHeight;
-    const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
-    setScrollProgress(Math.min(100, Math.max(0, progress)));
-  }, []);
-
-  // DISABLED: Monitor scroll progress to prevent interference with page navigation
-  // useEffect(() => {
-  //   const scrollContainer = getScrollContainer();
-  //   if (!scrollContainer) return;
-
-  //   const handleScroll = () => {
-  //     if (!isAutoScrolling) {
-  //       updateScrollProgress();
-  //     }
-  //   };
-
-  //   scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-  //   return () => scrollContainer.removeEventListener('scroll', handleScroll);
-  // }, [updateScrollProgress, isAutoScrolling]);
-
-  // Scroll to specific page
-  const scrollToPage = useCallback((pageIndex: number) => {
-    const scrollContainer = getScrollContainer();
-    if (!scrollContainer) {
-      console.warn('[Navigation Panel] No scroll container found');
-      return;
-    }
-
-    // Try to find page break indicators to calculate exact positions
-    const pageBreakLines = document.querySelectorAll('.page-break-line');
-    let scrollPosition = 0;
-
-    if (pageIndex === 0) {
-      // Scroll to top of document
-      scrollPosition = 0;
-    } else if (pageBreakLines && pageBreakLines.length > 0 && pageIndex <= pageBreakLines.length) {
-      // Use actual page break positions - scroll so page break is at top
-      const targetBreak = pageBreakLines[pageIndex - 1] as HTMLElement;
-      if (targetBreak) {
-        const rect = targetBreak.getBoundingClientRect();
-        const containerRect = scrollContainer.getBoundingClientRect();
-        // Calculate position so page break appears at top of viewport
-        scrollPosition = scrollContainer.scrollTop + (rect.top - containerRect.top);
-      }
-    } else {
-      // Fallback: calculate based on container height
-      const containerHeight = scrollContainer.clientHeight;
-      scrollPosition = pageIndex * containerHeight;
-    }
-
-    console.log('[Navigation Panel] Scrolling to page', pageIndex, 'at position', scrollPosition);
-
-    // Use requestAnimationFrame for smoother scrolling
-    requestAnimationFrame(() => {
-      scrollContainer.scrollTo({
-        top: scrollPosition,
-        behavior: 'smooth'
-      });
-    });
-  }, []);
-
-  // Enhanced page navigation with smooth scrolling
-  const navigateToPage = useCallback((pageIndex: number) => {
+  // Simple page navigation
+  const handlePageNavigation = useCallback((pageIndex: number) => {
     const validatedPageIndex = validatePageIndex(pageIndex, pageCount);
     if (validatedPageIndex === currentPage) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Navigation Panel] Page already at:', currentPage);
-      }
       return;
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Navigation Panel] Navigating from page', currentPage, 'to page', validatedPageIndex);
-    }
-
-    setIsAutoScrolling(true);
+    // Update the page state
     onPageChange(validatedPageIndex);
     
-    // Scroll to the page
-    scrollToPage(validatedPageIndex);
-
-    // Reset auto-scrolling flag after animation
-    setTimeout(() => {
-      setIsAutoScrolling(false);
-      updateScrollProgress();
-    }, 1000);
-  }, [currentPage, pageCount, onPageChange, updateScrollProgress, scrollToPage]);
+    // Navigate to the page
+    navigateToPage(validatedPageIndex);
+  }, [currentPage, pageCount, onPageChange]);
 
   // Jump to page handler
   const handleJumpToPage = (e: React.FormEvent) => {
     e.preventDefault();
     const pageNum = parseInt(jumpToPage);
     if (pageNum >= 1 && pageNum <= pageCount) {
-      navigateToPage(pageNum - 1);
+      handlePageNavigation(pageNum - 1);
       setJumpToPage('');
     }
   };
@@ -163,22 +80,22 @@ const EnhancedNavigationPanel: React.FC<EnhancedNavigationPanelProps> = ({
   // Navigation handlers
   const handlePrevPage = () => {
     if (currentPage > 0) {
-      navigateToPage(currentPage - 1);
+      handlePageNavigation(currentPage - 1);
     }
   };
 
   const handleNextPage = () => {
     if (currentPage < pageCount - 1) {
-      navigateToPage(currentPage + 1);
+      handlePageNavigation(currentPage + 1);
     }
   };
 
   const handleFirstPage = () => {
-    navigateToPage(0);
+    handlePageNavigation(0);
   };
 
   const handleLastPage = () => {
-    navigateToPage(pageCount - 1);
+    handlePageNavigation(pageCount - 1);
   };
 
   // Keyboard navigation
@@ -324,21 +241,6 @@ const EnhancedNavigationPanel: React.FC<EnhancedNavigationPanelProps> = ({
                 )}
               </div>
 
-              {/* Scroll Progress */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Progress</span>
-                  <span>{Math.round(scrollProgress)}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-1.5">
-                  <div 
-                    className="bg-primary h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${scrollProgress}%` }}
-                  />
-                </div>
-              </div>
-
-              <Separator />
 
               {/* Navigation Controls */}
               <div className="space-y-2">

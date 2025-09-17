@@ -130,23 +130,25 @@ const FontControls: React.FC<FontControlsProps> = ({
       <div className="flex items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Select value={getFontKeyFromFamily(currentFont)} onValueChange={onFontChange}>
-              <SelectTrigger className="w-[200px] h-8 transition-all duration-200 hover:border-primary/50 focus:border-primary">
-                <SelectValue placeholder="Select font" />
-              </SelectTrigger>
-              <SelectContent>
-                {fontOptions.map((font) => (
-                  <SelectItem key={font.value} value={font.value}>
-                    <div className="flex items-center gap-2">
-                      <span style={{ fontFamily: getFontFamily(font.value) }}>
-                        {font.preview}
-                      </span>
-                      <span className="text-sm">{font.label}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div>
+              <Select value={getFontKeyFromFamily(currentFont)} onValueChange={onFontChange}>
+                <SelectTrigger className="w-[200px] h-8 transition-all duration-200 hover:border-primary/50 focus:border-primary">
+                  <SelectValue placeholder="Select font" />
+                </SelectTrigger>
+                <SelectContent>
+                  {fontOptions.map((font) => (
+                    <SelectItem key={font.value} value={font.value}>
+                      <div className="flex items-center gap-2">
+                        <span style={{ fontFamily: getFontFamily(font.value) }}>
+                          {font.preview}
+                        </span>
+                        <span className="text-sm">{font.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </TooltipTrigger>
           <TooltipContent>
             <p>{t('toolbar.font')}</p>
@@ -158,20 +160,22 @@ const FontControls: React.FC<FontControlsProps> = ({
       <div className="flex items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Input
-              type="number"
-              value={parseInt(currentSize.replace('px', ''))}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value && parseInt(value) >= 1 && parseInt(value) <= 200) {
-                  onSizeChange(value);
-                }
-              }}
-              placeholder={language === 'ur' ? 'سائز' : 'Size'}
-              className="w-20 h-8 transition-all duration-200 hover:border-primary/50 focus:border-primary"
-              min="1"
-              max="200"
-            />
+            <div>
+              <Input
+                type="number"
+                value={parseInt(currentSize.replace('px', ''))}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value && parseInt(value) >= 1 && parseInt(value) <= 200) {
+                    onSizeChange(value);
+                  }
+                }}
+                placeholder={language === 'ur' ? 'سائز' : 'Size'}
+                className="w-20 h-8 transition-all duration-200 hover:border-primary/50 focus:border-primary"
+                min="1"
+                max="200"
+              />
+            </div>
           </TooltipTrigger>
           <TooltipContent>
             <p>{language === 'ur' ? 'فونٹ سائز درج کریں (1-200px)' : 'Enter font size (1-200px)'}</p>

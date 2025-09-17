@@ -1,15 +1,17 @@
 import React from 'react';
 import { Editor } from '@tiptap/react';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, FileText, Layers, Zap } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { EditorToolbarProps } from '../../types';
 import DocumentControls from './DocumentControls';
 import FontControls from './FontControls';
 import FormattingControls from './FormattingControls';
+import AdvancedFormattingControls from './AdvancedFormattingControls';
 import AlignmentControls from './AlignmentControls';
 import ZoomControls from './ZoomControls';
 import ExportControls from './ExportControls';
 import EnhancedKeyboardLayoutToggle from './EnhancedKeyboardLayoutToggle';
+// HarfBuzz imports removed - UI elements cleaned up
 
 const ToolbarContainer: React.FC<EditorToolbarProps> = ({
   editor,
@@ -24,185 +26,18 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
   onPageSetupClick,
   pageLayout,
   onToggleMarginGuides,
-  useMultiPageEditor = true,
-  onToggleEditorMode,
   currentLayout,
   onLayoutChange,
   isKeyboardEnabled,
   onKeyboardToggle,
 }) => {
   const { language } = useLanguage();
+  
+  // HarfBuzz status removed - UI elements cleaned up
 
   const handlePrint = () => {
-    try {
-      // Check if we're using DynamicPageEditor
-      const documentContainer = document.querySelector('.document-container');
-      const isDynamicPageEditor = documentContainer && !documentContainer.classList.contains('multi-page-editor');
-      
-      if (isDynamicPageEditor) {
-        // Use the new DynamicPageEditor print system
-        const printOptions = {
-          pageSize: pageLayout?.pageSize || 'A4',
-          orientation: pageLayout?.orientation || 'portrait',
-          margins: pageLayout?.margins || { top: 20, bottom: 20, left: 20, right: 20 },
-          scale: 1
-        };
-        
-        // Get page break positions from the editor state
-        let pageBreakPositions: number[] = [];
-        
-        // Look for page break positions in the editor's data attributes
-        const editorElement = document.querySelector('.ProseMirror');
-        if (editorElement) {
-          const pageBreaksData = editorElement.getAttribute('data-page-breaks');
-          if (pageBreaksData) {
-            try {
-              pageBreakPositions = JSON.parse(pageBreaksData);
-              console.log('Print: Found page break positions from data attribute:', pageBreakPositions);
-            } catch (e) {
-              console.warn('Failed to parse page break positions:', e);
-            }
-          }
-        }
-        
-        // If no page breaks found, try to calculate them
-        if (pageBreakPositions.length === 0) {
-          const contentElement = document.querySelector('.editor-content .ProseMirror') as HTMLElement;
-          if (contentElement) {
-            const contentHeight = contentElement.scrollHeight;
-            const pageHeight = printOptions.pageSize === 'Letter' ? 279 * 3.7795275591 : 297 * 3.7795275591;
-            const availableHeight = pageHeight - ((printOptions.margins?.top || 20) + (printOptions.margins?.bottom || 20)) * 3.7795275591;
-            
-            console.log('Print: Calculating page breaks:', { contentHeight, pageHeight, availableHeight });
-            
-            // Calculate approximate page breaks
-            const pageCount = Math.ceil(contentHeight / availableHeight);
-            for (let i = 1; i < pageCount; i++) {
-              pageBreakPositions.push(i * availableHeight);
-            }
-            
-            console.log('Print: Calculated page break positions:', pageBreakPositions);
-          }
-        }
-        
-        // Import the print utilities dynamically to avoid circular dependencies
-        import('../../utils/printUtils').then(({ prepareDynamicPageEditorForPrint }) => {
-          // Prepare for print with separate pages
-          const cleanup = prepareDynamicPageEditorForPrint(printOptions, pageBreakPositions);
-          
-          // Get the print pages container
-          const printContainer = document.querySelector('.print-pages-container');
-          console.log('Print: Print container found:', !!printContainer);
-          
-          if (printContainer) {
-            // Open print window with the prepared pages
-            const printWindow = window.open('', '_blank');
-            if (printWindow) {
-              printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                  <head>
-                    <title>UrDocs - Print</title>
-                    <meta charset="utf-8">
-                    <style>
-                      @import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;700&display=swap');
-                      body { 
-                        margin: 0; 
-                        padding: 0; 
-                        background: white;
-                        font-family: 'Noto Nastaliq Urdu', serif;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                      }
-                      .print-pages-container {
-                        width: 100%;
-                        background: white;
-                      }
-                      .print-page {
-                        margin: 0 auto 10mm auto;
-                        background: white; 
-                        box-sizing: border-box;
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                      }
-                      /* Preserve all original document styling */
-                      .document-container {
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                      }
-                      .editor-content {
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                      }
-                      .ProseMirror {
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                      }
-                      .prose-content {
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
-                      }
-                      @media print {
-                        body { 
-                          padding: 0; 
-                          margin: 0; 
-                          -webkit-print-color-adjust: exact;
-                          print-color-adjust: exact;
-                        }
-                        .print-page { 
-                          margin: 0; 
-                          page-break-after: always;
-                          -webkit-print-color-adjust: exact;
-                          print-color-adjust: exact;
-                        }
-                        .print-page:last-child {
-                          page-break-after: auto;
-                        }
-                        * {
-                          -webkit-print-color-adjust: exact;
-                          print-color-adjust: exact;
-                        }
-                      }
-                    </style>
-                  </head>
-                  <body>
-                    ${printContainer.innerHTML}
-                    <script>
-                      window.onload = function() {
-                        setTimeout(function() {
-                          window.print();
-                        }, 500);
-                      };
-                    </script>
-                  </body>
-                </html>
-              `);
-              printWindow.document.close();
-              printWindow.focus();
-              
-              // Cleanup after printing
-              setTimeout(() => {
-                cleanup();
-              }, 1000);
-            }
-          } else {
-            console.warn('Print: Print container not found, falling back to legacy system');
-            // Fallback to legacy system
-            handleLegacyPrint();
-          }
-        }).catch((error) => {
-          console.error('Print: Error importing print utilities:', error);
-          // Fallback to legacy system
-          handleLegacyPrint();
-        });
-      } else {
-        // Use legacy system for other editors
+    // Always use the professional multi-page editor print system
         handleLegacyPrint();
-      }
-    } catch (error) {
-      console.error('Error printing document:', error);
-      alert('Failed to print document. Please try again.');
-    }
   };
 
   const handleLegacyPrint = () => {
@@ -364,9 +199,9 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
   if (!editor) return null;
 
   return (
-    <div className="sticky top-0 z-40 border-b border-border bg-card shadow-sm">
+    <div className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-sm shadow-sm">
       {/* Main Toolbar */}
-      <div className="flex flex-wrap items-center gap-4 p-6 max-w-7xl mx-auto">
+      <div className="flex flex-wrap items-center gap-3 p-4 max-w-7xl mx-auto">
         {/* Document Controls Group */}
         <div className="flex items-center gap-2">
           <DocumentControls
@@ -374,14 +209,13 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
             onPageSetupClick={onPageSetupClick}
             pageLayout={pageLayout}
             onToggleMarginGuides={onToggleMarginGuides}
-            useMultiPageEditor={useMultiPageEditor}
-            onToggleEditorMode={onToggleEditorMode}
+            // Professional mode is now always enabled
             onPrint={handlePrint}
           />
         </div>
 
         {/* Separator */}
-        <div className="w-px h-8 bg-border" />
+        <div className="w-px h-6 bg-border/60" />
 
         {/* Typography Group */}
         <div className="flex items-center gap-2">
@@ -393,7 +227,7 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
         </div>
 
         {/* Separator */}
-        <div className="w-px h-8 bg-border" />
+        <div className="w-px h-6 bg-border/60" />
 
         {/* Formatting Group */}
         <div className="flex items-center gap-2">
@@ -401,7 +235,15 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
         </div>
 
         {/* Separator */}
-        <div className="w-px h-8 bg-border" />
+        <div className="w-px h-6 bg-border/60" />
+
+        {/* Advanced Formatting Group */}
+        <div className="flex items-center gap-2">
+          <AdvancedFormattingControls editor={editor} />
+        </div>
+
+        {/* Separator */}
+        <div className="w-px h-6 bg-border/60" />
 
         {/* Alignment Group */}
         <div className="flex items-center gap-2">
@@ -409,7 +251,7 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
         </div>
 
         {/* Separator */}
-        <div className="w-px h-8 bg-border" />
+        <div className="w-px h-6 bg-border/60" />
 
         {/* Keyboard & Input Group */}
         <div className="flex items-center gap-2">
@@ -422,7 +264,7 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
         </div>
 
         {/* Separator */}
-        <div className="w-px h-8 bg-border" />
+        <div className="w-px h-6 bg-border/60" />
 
         {/* View & Export Group */}
         <div className="flex items-center gap-2">
@@ -435,6 +277,11 @@ const ToolbarContainer: React.FC<EditorToolbarProps> = ({
 
         {/* Spacer */}
         <div className="flex-1" />
+
+        {/* HarfBuzz Status removed - UI elements cleaned up */}
+
+        {/* Separator */}
+        <div className="w-px h-6 bg-border/60" />
 
         {/* Theme Toggle */}
         <div className="flex items-center gap-2">

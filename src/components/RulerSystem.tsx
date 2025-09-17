@@ -24,6 +24,7 @@ interface RulerSystemProps {
   onMarginChange: (margins: Margins) => void;
   isRTL?: boolean;
   type?: 'horizontal' | 'vertical' | 'both';
+  containerHeight?: number;
 }
 
 interface TickMark {
@@ -37,7 +38,8 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
   zoomLevel,
   onMarginChange,
   isRTL = true,
-  type = 'both'
+  type = 'both',
+  containerHeight
 }) => {
   const { theme } = useTheme();
   const horizontalRulerRef = useRef<HTMLDivElement>(null);
@@ -99,7 +101,10 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
     const majorInterval = 50; // 50mm major ticks
     const minorInterval = 10; // 10mm minor ticks
     
-    for (let i = 0; i <= pageDimensions.height; i += minorInterval) {
+    // Use container height if provided, otherwise use page height
+    const maxHeight = containerHeight ? containerHeight / MM_TO_PX : pageDimensions.height;
+    
+    for (let i = 0; i <= maxHeight; i += minorInterval) {
       const isMajor = i % majorInterval === 0;
       const position = (i * MM_TO_PX);
       ticks.push({
@@ -110,7 +115,7 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
     }
     
     return ticks;
-  }, [pageDimensions.height]);
+  }, [pageDimensions.height, containerHeight]);
 
   // Calculate margin positions in pixels (base dimensions - CSS transform handles scaling)
   const marginPositions = useMemo(() => {
@@ -308,7 +313,7 @@ const RulerSystem: React.FC<RulerSystemProps> = ({
       className={`vertical-ruler ${theme === 'dark' ? 'dark' : 'light'}`}
       style={{
         width: '30px',
-        height: `${rulerDimensions.height}px`,
+        height: containerHeight ? `${containerHeight}px` : `${rulerDimensions.height}px`,
         position: 'relative',
         border: `1px solid ${theme === 'dark' ? '#4b5563' : '#d1d5db'}`,
         backgroundColor: theme === 'dark' ? '#1f2937' : '#f9fafb',

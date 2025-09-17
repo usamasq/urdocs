@@ -1,57 +1,4 @@
-/* Google Fonts - Urdu & Arabic Typography */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-/* Urdu Nasta'liq Fonts - Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Gulzar:wght@400&display=swap');
-
-/* Arabic Naskh Fonts - Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@100;200;300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Arabic:wght@100;200;300;400;500;600;700;800;900&display=swap');
-
-/* Traditional Arabic Fonts - Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Amiri+Quran:wght@400&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Scheherazade:wght@400;500;600;700&display=swap');
-
-/* Modern Arabic Fonts - Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@200;300;400;500;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@100;200;300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@100;200;300;400;500;600;700&display=swap');
-
-/* Persian Fonts - Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100;200;300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Estedad:wght@100;200;300;400;500;600;700;800;900&display=swap');
-
-/* Calligraphic Fonts - Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Markazi+Text:wght@400;500;600;700&display=swap');
-
-/* Baloo Font Family - Google Fonts (Supports Urdu) */
-@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Baloo+Tamma+2:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Baloo+Thambi+2:wght@400;500;600;700;800&display=swap');
-
-/* Additional Arabic/Urdu Fonts - Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Changa:wght@200;300;400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=El+Messiri:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Harmattan:wght@400&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Lalezar:wght@400&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Mada:wght@200;300;400;500;600;700;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Mirza:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@100;200;300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@200;300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Rakkas:wght@400&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Scheherazade+New:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@200;300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@200;300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@100;200;300;400;500;600;700;800;900&display=swap');
+/* Google Fonts are now loaded in index.html to prevent MIME type errors */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -522,27 +469,6 @@
       0 0 0 1px hsl(var(--border));
   }
 
-  /* Continuous Editor Styles */
-  .continuous-editor {
-    position: relative;
-    margin: 0 auto;
-    box-shadow: 
-      0 4px 6px -1px rgba(0, 0, 0, 0.1),
-      0 2px 4px -1px rgba(0, 0, 0, 0.06),
-      0 0 0 1px rgba(0, 0, 0, 0.05);
-    border-radius: 12px;
-    overflow: visible;
-    min-width: 210mm;
-    max-width: 210mm;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .continuous-editor:hover {
-    box-shadow: 
-      0 10px 15px -3px rgba(0, 0, 0, 0.1),
-      0 4px 6px -2px rgba(0, 0, 0, 0.05),
-      0 0 0 1px rgba(0, 0, 0, 0.05);
-  }
 
   /* Page break simulation using CSS */
   .page-break {
@@ -552,6 +478,64 @@
     margin: 0;
     padding: 0;
     border: none;
+    display: block;
+    clear: both;
+    overflow: hidden;
+  }
+
+  /* Enhanced page break styles for better browser support */
+  .page-break-line {
+    width: 100%;
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 10px 0;
+    position: relative;
+    display: block;
+    page-break-before: always;
+    break-before: page;
+  }
+
+  /* Print-specific page break styles */
+  @media print {
+    .page-break,
+    .page-break-line {
+      page-break-before: always !important;
+      break-before: page !important;
+      height: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      background: none !important;
+    }
+    
+    /* Ensure page breaks work in all browsers */
+    .page-break::before,
+    .page-break-line::before {
+      content: "";
+      display: block;
+      page-break-before: always;
+    }
+  }
+
+  /* Screen-only page break indicators */
+  @media screen {
+    .page-break-line {
+      background: linear-gradient(to right, transparent, #e0e0e0, transparent);
+      position: relative;
+    }
+    
+    .page-break-line::after {
+      content: "Page Break";
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 0 8px;
+      font-size: 10px;
+      color: #666;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
   }
 
   /* Multi-page editor */
@@ -750,11 +734,6 @@
   bottom: 0;
   pointer-events: none;
   z-index: 5;
-}
-
-.page-break-line {
-  position: relative;
-  animation: fadeIn 0.3s ease-out;
 }
 
 .page-break-label {
@@ -1164,21 +1143,6 @@
       0 0 0 1px rgba(0, 0, 0, 0.1);
   }
 
-  /* Dark mode for continuous editor */
-  .dark .continuous-editor {
-    background: hsl(var(--card));
-    box-shadow: 
-      0 4px 6px -1px rgba(0, 0, 0, 0.3),
-      0 2px 4px -1px rgba(0, 0, 0, 0.1),
-      0 0 0 1px rgba(0, 0, 0, 0.1);
-  }
-
-  .dark .continuous-editor:hover {
-    box-shadow: 
-      0 10px 15px -3px rgba(0, 0, 0, 0.3),
-      0 4px 6px -2px rgba(0, 0, 0, 0.1),
-      0 0 0 1px rgba(0, 0, 0, 0.1);
-  }
 
   /* Page Container Styles */
   .page-container {

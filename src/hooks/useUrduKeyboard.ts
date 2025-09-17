@@ -4,7 +4,12 @@ import { layouts, LayoutType } from '../utils/keyboardLayouts';
 
 export const useUrduKeyboard = (editor: Editor | null, layout: LayoutType | null) => {
   useEffect(() => {
-    if (!editor || !layout) return;
+    if (!editor || !layout) {
+      console.log('Urdu keyboard disabled:', { editor: !!editor, layout });
+      return;
+    }
+
+    console.log('Urdu keyboard enabled with layout:', layout);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       // Don't intercept if user is holding Ctrl, Alt, or Cmd (for shortcuts)
@@ -12,8 +17,13 @@ export const useUrduKeyboard = (editor: Editor | null, layout: LayoutType | null
         return;
       }
 
-      // Don't intercept special keys
+      // Don't intercept special keys (except space)
       if (event.key.length > 1 && event.key !== ' ') {
+        return;
+      }
+
+      // Check if the editor is focused
+      if (!editor.isFocused) {
         return;
       }
 
@@ -21,6 +31,7 @@ export const useUrduKeyboard = (editor: Editor | null, layout: LayoutType | null
       const urduChar = currentLayout[event.key];
 
       if (urduChar) {
+        console.log('Converting key:', event.key, 'to Urdu:', urduChar);
         event.preventDefault();
         
         // Insert the Urdu character at the current cursor position

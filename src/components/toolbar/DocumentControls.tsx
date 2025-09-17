@@ -7,6 +7,9 @@ import {
   Ruler,
   FileText,
   Printer,
+  Layers,
+  Zap,
+  Minus,
 } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { PageLayout } from '../../types';
@@ -18,8 +21,7 @@ interface DocumentControlsProps {
   onPageSetupClick: () => void;
   pageLayout?: PageLayout;
   onToggleMarginGuides?: () => void;
-  useMultiPageEditor?: boolean;
-  onToggleEditorMode?: () => void;
+  // Professional mode is now always enabled
   onPrint: () => void;
 }
 
@@ -28,12 +30,12 @@ const DocumentControls: React.FC<DocumentControlsProps> = ({
   onPageSetupClick,
   pageLayout,
   onToggleMarginGuides,
-  useMultiPageEditor,
-  onToggleEditorMode,
+  // Professional mode is now always enabled
   onPrint,
 }) => {
   const { language, t } = useLanguage();
   const [, forceUpdate] = useState({});
+
 
   if (!editor) return null;
 
@@ -106,6 +108,33 @@ const DocumentControls: React.FC<DocumentControlsProps> = ({
             <p>{t('toolbar.page.setup')}</p>
           </TooltipContent>
         </Tooltip>
+
+        {/* Page Break Button - FIXED: Add manual page break functionality */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                // Insert a manual page break at the current cursor position
+                editor.chain().focus().insertContent({
+                  type: 'pageBreak',
+                  attrs: {
+                    pageNumber: 1,
+                    isManual: true,
+                    breakType: 'page'
+                  }
+                }).run();
+              }}
+              className="h-8 w-8 p-0 transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
+            >
+              <Minus className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{language === 'ur' ? 'صفحہ توڑ (Ctrl+Enter)' : 'Page Break (Ctrl+Enter)'}</p>
+          </TooltipContent>
+        </Tooltip>
       
         {onToggleMarginGuides && (
           <Tooltip>
@@ -126,24 +155,7 @@ const DocumentControls: React.FC<DocumentControlsProps> = ({
           </Tooltip>
         )}
         
-        {onToggleEditorMode && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={useMultiPageEditor ? "default" : "ghost"}
-                size="sm"
-                onClick={onToggleEditorMode}
-                className="h-8 w-8 p-0 transition-all duration-200"
-                aria-pressed={useMultiPageEditor}
-              >
-                <FileText className="w-4 h-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{useMultiPageEditor ? 'Switch to Continuous Mode' : 'Switch to Multi-Page Mode'}</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
+        {/* Editor mode toggle removed - always using professional multi-page mode */}
         
         <Tooltip>
           <TooltipTrigger asChild>
@@ -160,6 +172,8 @@ const DocumentControls: React.FC<DocumentControlsProps> = ({
             <p>Print (Ctrl+P)</p>
           </TooltipContent>
         </Tooltip>
+
+        {/* Professional Layout Toggle removed - always using professional mode */}
       </div>
     </TooltipProvider>
   );
